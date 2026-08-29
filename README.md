@@ -23,6 +23,7 @@ uv run python scripts/<スクリプト名>.py [オプション]
 | スクリプト | 説明資料 | 概要 |
 | --- | --- | --- |
 | `generate_sample_data.py` | [docs/generate_sample_data.md](docs/generate_sample_data.md) | データ定義情報（プロファイル）からサンプルデータ（Parquet）を生成する |
+| `customer_pref_summary.py` | [docs/customer_pref_summary.md](docs/customer_pref_summary.md) | 顧客マスタをprefごとに集計し、segment色分け・クリックで明細が見える棒グラフレポートを作る |
 
 新しいスクリプトを追加するときのルールは [CLAUDE.md](CLAUDE.md) を参照
 （要点: スクリプトを追加・変更したら `docs/` の説明資料も必ず更新する）。
