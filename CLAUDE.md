@@ -110,6 +110,32 @@ docs/
 └── generate_sample_data.md
 ```
 
+## 用意されているユーティリティツール
+
+### `generate_sample_data` — サンプルデータ生成
+
+データ定義情報（プロファイルJSON）を読み込み、それに従ったサンプルデータを
+Parquetで生成するツール。分析ツールを新しく作るとき、実データがまだ
+手元に無い／実データを直接使えない場合は、このツールでテストデータを
+用意してから `prepare`〜`visualize` の実装を進める。
+
+```bash
+uv run python scripts/generate_sample_data.py \
+  --profile profiles/orders.json \
+  --output output/orders_sample.parquet \
+  --rows 10000000   # 省略時はプロファイルの row_count
+```
+
+- `profiles/customers.json` / `profiles/orders.json` に、汎用の業務データ
+  （顧客・注文）の定義例が用意されている。列を増やす・出現割合を変えるなど
+  自由に編集してよい。
+- プロファイルは手書きのほか、実データがあれば
+  `src/analyse_tool/common/profile.py` の `profile_from_parquet()` で
+  自動生成できる（`prepare.py` が使う想定の関数）。
+- `--rows` で行数を指定行数に上書きできるので、大規模データでの動作確認
+  （数百万〜数億行）にもそのまま使える。
+- 詳細は [docs/generate_sample_data.md](docs/generate_sample_data.md) を参照。
+
 ## 大規模データの扱い（Parquet + DuckDB）
 
 `prepare.py` / `process.py` は数百万〜数億行のデータを扱うことを基本前提に
@@ -224,6 +250,8 @@ AnalyseTool/
 
 ## スクリプト作成時の進め方
 
+0. 実データがまだ無い／直接使えない場合は、先に `generate_sample_data`
+   （前述）でサンプルデータを作ってから開発を進める。
 1. `src/analyse_tool/<ツール名>/` にサブパッケージを作り、`cli.py` /
    `io.py` に加えて `prepare.py`（前準備＝データ傾向の把握）/
    `process.py`（データ加工）/ `analyze.py`（分析）/
