@@ -22,7 +22,7 @@ uv run python scripts/<スクリプト名>.py [オプション]
 
 | スクリプト | 説明資料 | 概要 |
 | --- | --- | --- |
-| _(まだ無し)_ | | |
+| `generate_sample_data.py` | [docs/generate_sample_data.md](docs/generate_sample_data.md) | データ定義情報（プロファイル）からサンプルデータ（Parquet）を生成する |
 
 新しいスクリプトを追加するときのルールは [CLAUDE.md](CLAUDE.md) を参照
 （要点: スクリプトを追加・変更したら `docs/` の説明資料も必ず更新する）。
@@ -33,6 +33,7 @@ uv run python scripts/<スクリプト名>.py [オプション]
 | --- | --- |
 | `scripts/` | 分析ツールスクリプト本体 |
 | `docs/` | 各スクリプトの説明資料（処理概要・I/O・実行オプション） |
-| `src/analyse_tool/` | 複数スクリプトで共有する共通処理 |
+| `src/analyse_tool/` | 複数スクリプトで共有する共通処理・ツールごとの実装 |
+| `profiles/` | データ定義情報（プロファイル）のJSON。`prepare.py`の出力 or 手書き |
 | `data/` | 分析対象データ置き場（git管理外） |
 | `output/` | スクリプトの出力先（git管理外） |

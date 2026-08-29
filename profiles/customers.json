@@ -1,0 +1,47 @@
+{
+  "name": "customers",
+  "row_count": 10000,
+  "columns": [
+    {
+      "name": "customer_id",
+      "dtype": "int64",
+      "role": "id",
+      "description": "顧客ID（連番）"
+    },
+    {
+      "name": "customer_name",
+      "dtype": "string",
+      "role": "id",
+      "description": "顧客名（仮名、連番付き）",
+      "categories": [{ "value": "顧客", "freq": 1.0 }]
+    },
+    {
+      "name": "segment",
+      "dtype": "string",
+      "role": "categorical",
+      "description": "顧客区分",
+      "categories": [
+        { "value": "個人", "freq": 0.55 },
+        { "value": "法人", "freq": 0.3 },
+        { "value": "官公庁", "freq": 0.05 },
+        { "value": "その他", "freq": 0.1 }
+      ]
+    },
+    {
+      "name": "pref",
+      "dtype": "string",
+      "role": "categorical",
+      "description": "地方区分",
+      "categories": [
+        { "value": "北海道", "freq": 0.05 },
+        { "value": "東北", "freq": 0.08 },
+        { "value": "関東", "freq": 0.32 },
+        { "value": "中部", "freq": 0.15 },
+        { "value": "近畿", "freq": 0.2 },
+        { "value": "中国", "freq": 0.07 },
+        { "value": "四国", "freq": 0.05 },
+        { "value": "九州・沖縄", "freq": 0.08 }
+      ]
+    }
+  ]
+}

@@ -23,6 +23,10 @@ DATA分析で使うツールスクリプトを溜めていくプロジェクト�
      ステップであり、加工そのもの（結合・集計・変換）は行わない。
      数百万〜数億行規模を想定し、集計は極力 DuckDB の SQL で行い、
      全件を pandas にロードしない（詳細は後述「大規模データの扱い」）。
+     得られた傾向は `src/analyse_tool/common/profile.py` の
+     `DatasetProfile` 形式でJSON保存する（`profile_from_parquet()` で
+     生成できる）。この形式は `generate_sample_data`
+     ツール（後述）の入力フォーマットと共通になっている。
   2. **データ加工 (`process.py`)** = **データクレンジング/前処理
      （Data Cleaning / Preprocessing）** — 型変換・欠損値処理・結合・
      集約・特徴量作成など、分析対象のデータそのものを作る変換処理。
@@ -74,6 +78,36 @@ src/analyse_tool/
 
 docs/
 └── sales_summary.md            # 説明資料（処理概要・I/O・実行オプション）
+```
+
+### 例外: 4ステップに当てはまらないユーティリティスクリプト
+
+`generate_sample_data`（サンプルデータ生成）のように、実データを
+分析するのではなく**データそのものを作る／変換する**ようなツールは
+前準備/データ加工/分析/可視化の4ステップに強引に当てはめない。
+その場合も以下は変わらず適用する。
+
+- `scripts/<name>.py` はエントリポイントに徹する。
+- 実処理は `src/analyse_tool/<name>/` に置き、責務ごとに
+  モジュールを分ける（例: `cli.py` / `io.py` / 処理本体のモジュール）。
+- 最重要ルール2（説明資料を残す）は変わらず必須。
+
+```text
+scripts/
+└── generate_sample_data.py    # エントリポイント
+
+src/analyse_tool/generate_sample_data/
+├── __init__.py                 # main()
+├── cli.py                      # 引数定義
+├── io.py                       # プロファイル読み込み・Parquet書き出し
+└── generate.py                 # データ生成ロジック本体
+
+profiles/
+├── customers.json              # データ定義情報（プロファイル）の例
+└── orders.json
+
+docs/
+└── generate_sample_data.md
 ```
 
 ## 大規模データの扱い（Parquet + DuckDB）
@@ -170,8 +204,10 @@ AnalyseTool/
 │   └── _template.md     説明資料のテンプレート
 ├── src/analyse_tool/
 │   ├── common/
-│   │   └── charts/        グラフ種類ごとの共通モジュール（line.py/bar.py等）
+│   │   ├── charts/        グラフ種類ごとの共通モジュール（line.py/bar.py等）
+│   │   └── profile.py     データ定義情報(プロファイル)の共通フォーマット
 │   └── <tool_name>/      ツールごとのサブパッケージ（cli.py/io.py/prepare.py等）
+├── profiles/            データ定義情報(プロファイル)のJSON（prepare.pyの出力 or 手書き）
 ├── data/                分析対象データ（git管理外・再取得/再生成前提）
 └── output/              スクリプトの出力先（git管理外）
 ```

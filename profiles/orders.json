@@ -1,0 +1,95 @@
+{
+  "name": "orders",
+  "row_count": 1000000,
+  "columns": [
+    {
+      "name": "order_id",
+      "dtype": "int64",
+      "role": "id",
+      "description": "注文ID（連番）"
+    },
+    {
+      "name": "customer_id",
+      "dtype": "int64",
+      "role": "numeric",
+      "description": "顧客ID。customers.json の customer_id（1〜10000）を想定した一様乱数",
+      "distribution": "uniform",
+      "min": 1,
+      "max": 10000
+    },
+    {
+      "name": "order_date",
+      "dtype": "date",
+      "role": "date",
+      "description": "注文日",
+      "min": "2025-01-01",
+      "max": "2026-12-31"
+    },
+    {
+      "name": "category",
+      "dtype": "string",
+      "role": "categorical",
+      "description": "商品カテゴリ",
+      "categories": [
+        { "value": "食品", "freq": 0.22 },
+        { "value": "日用品", "freq": 0.18 },
+        { "value": "衣料", "freq": 0.12 },
+        { "value": "家電", "freq": 0.1 },
+        { "value": "書籍", "freq": 0.08 },
+        { "value": "家具", "freq": 0.07 },
+        { "value": "化粧品", "freq": 0.08 },
+        { "value": "スポーツ用品", "freq": 0.06 },
+        { "value": "玩具", "freq": 0.05 },
+        { "value": "その他", "freq": 0.04 }
+      ]
+    },
+    {
+      "name": "region",
+      "dtype": "string",
+      "role": "categorical",
+      "description": "配送地域",
+      "categories": [
+        { "value": "北海道", "freq": 0.05 },
+        { "value": "東北", "freq": 0.08 },
+        { "value": "関東", "freq": 0.32 },
+        { "value": "中部", "freq": 0.15 },
+        { "value": "近畿", "freq": 0.2 },
+        { "value": "中国", "freq": 0.07 },
+        { "value": "四国", "freq": 0.05 },
+        { "value": "九州・沖縄", "freq": 0.08 }
+      ]
+    },
+    {
+      "name": "quantity",
+      "dtype": "int64",
+      "role": "numeric",
+      "description": "数量",
+      "distribution": "uniform",
+      "min": 1,
+      "max": 20
+    },
+    {
+      "name": "amount",
+      "dtype": "int64",
+      "role": "numeric",
+      "description": "金額。対数正規分布（mean/stddevは元になる正規分布側のパラメータ、実額の平均・標準偏差ではない）",
+      "distribution": "lognormal",
+      "mean": 8.5,
+      "stddev": 1.1,
+      "min": 100,
+      "max": 2000000
+    },
+    {
+      "name": "status",
+      "dtype": "string",
+      "role": "categorical",
+      "description": "注文ステータス",
+      "categories": [
+        { "value": "完了", "freq": 0.7 },
+        { "value": "処理中", "freq": 0.15 },
+        { "value": "保留", "freq": 0.1 },
+        { "value": "取消", "freq": 0.05 }
+      ]
+    }
+  ]
+}
