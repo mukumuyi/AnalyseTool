@@ -1,0 +1,13 @@
+[project]
+name = "analyse-tool"
+version = "0.1.0"
+description = "データ分析用ツールスクリプト集"
+authors = [
+    { name = "muku", email = "nishimoto.yutaka@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

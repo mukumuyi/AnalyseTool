@@ -1,0 +1,16 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 分析対象データ・成果物（再生成/再取得可能なため管理外。.gitkeep のみ管理）
+/data/*
+!/data/.gitkeep
+/output/*
+!/output/.gitkeep
