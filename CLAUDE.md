@@ -21,12 +21,18 @@ DATA分析で使うツールスクリプトを溜めていくプロジェクト�
      分布・値のばらつき・カテゴリ列のユニーク値など）。ここで得た傾向を
      もとに、後続のデータ加工・分析の方針を決める。「データの中身を知る」
      ステップであり、加工そのもの（結合・集計・変換）は行わない。
+     数百万〜数億行規模を想定し、集計は極力 DuckDB の SQL で行い、
+     全件を pandas にロードしない（詳細は後述「大規模データの扱い」）。
   2. **データ加工 (`process.py`)** = **データクレンジング/前処理
      （Data Cleaning / Preprocessing）** — 型変換・欠損値処理・結合・
      集約・特徴量作成など、分析対象のデータそのものを作る変換処理。
+     数百万〜数億行規模を想定し、**Parquet + DuckDB** を標準の加工手段と
+     する（詳細は後述「大規模データの扱い」）。
   3. **分析 (`analyze.py`)** = **分析・モデリング（Analysis / Modeling）**
      — 加工済みデータに対する集計・統計量算出・比較など、数値としての
-     分析結果を作る処理。
+     分析結果を作る処理。可視化に渡すのは生データではなく、ここで
+     集計・要約した後の小さいデータにする（可視化ステップの負荷を下げる
+     ため。詳細は後述）。
   4. **可視化 (`visualize.py`)** = **可視化・レポーティング
      （Visualization / Reporting）** — 分析結果をグラフ・表など見せる形に
      変換・出力する処理。可視化した内容を探索的に分析することが多いため、
@@ -35,7 +41,8 @@ DATA分析で使うツールスクリプトを溜めていくプロジェクト�
      [Plotly](https://plotly.com/python/) を使い、サーバー起動が不要な
      自己完結HTML（`fig.write_html()`）として `output/` に書き出す形を
      基本とする。静的画像（PNG等）はdocsへの貼り付けや軽量な確認用として
-     必要に応じて併用する。
+     必要に応じて併用する。グラフの種類ごとのモジュール化・大量データ時の
+     軽量化方針は後述「可視化のモジュール化と大量データ対策」を参照。
 - 上記4ステップに加えて、`cli.py`（引数定義）・`io.py`（ファイルそのものの
   読み書き）を分離する。4ステップの関数はファイルI/Oを直接行わず、
   `io.py` 経由でデータの受け渡しをする。
@@ -52,18 +59,60 @@ scripts/
 └── sales_summary.py           # エントリポイント（cli呼び出し＋main()呼び出しのみ）
 
 src/analyse_tool/
+├── common/
+│   └── charts/                 # グラフ種類ごとの共通モジュール（全ツール共用）
+│       ├── line.py
+│       └── bar.py
 └── sales_summary/
     ├── __init__.py             # 4ステップを順に呼ぶ main()
     ├── cli.py                  # 引数定義
-    ├── io.py                   # 入出力（読み込み・書き出し）
-    ├── prepare.py              # ① 前準備（データ傾向の把握）
-    ├── process.py              # ② データ加工
-    ├── analyze.py              # ③ 分析
-    └── visualize.py            # ④ 可視化
+    ├── io.py                   # 入出力（DuckDBでParquetを読み書き）
+    ├── prepare.py              # ① 前準備（DuckDBでデータ傾向を把握）
+    ├── process.py              # ② データ加工（DuckDBのSQLで集計・結合）
+    ├── analyze.py              # ③ 分析（可視化用に集計・サンプリング）
+    └── visualize.py            # ④ 可視化（common/charts/ を組み合わせてレポート化）
 
 docs/
 └── sales_summary.md            # 説明資料（処理概要・I/O・実行オプション）
 ```
+
+## 大規模データの扱い（Parquet + DuckDB）
+
+`prepare.py` / `process.py` は数百万〜数億行のデータを扱うことを基本前提に
+設計する。
+
+- データ形式は **Parquet** を標準とする（`data/` に置く入力データ、
+  `process.py` が生成する中間ファイル、いずれも）。
+- 加工・集計は **DuckDB**（SQL）を第一選択にする。`io.py` で
+  `duckdb.sql("SELECT ... FROM read_parquet('...')")` のようにSQLで
+  フィルタ・結合・集計まで済ませ、**pandas には集計済み・絞り込み済みの
+  小さいデータだけを渡す**。生データ全件を先に pandas の DataFrame へ
+  読み込んでから加工しない。
+- `prepare.py` のプロファイリング（件数・欠損率・分布など）も同様に、
+  `COUNT` / `AVG` / `APPROX_COUNT_DISTINCT` などDuckDBのSQL集計を優先し、
+  全件を pandas にロードしない。
+- 依存: `duckdb`, `pyarrow`（初回使用時に `uv add duckdb pyarrow`）。
+- この方針は `bussiness/ER_DuckDB` での実測（同一処理でDuckDBが
+  pandas+CSV比で数百〜千倍高速）を踏まえたもの。
+
+## 可視化のモジュール化と大量データ対策
+
+- グラフは**種類ごとに** `src/analyse_tool/common/charts/` にモジュール化
+  する（例: `line.py` / `bar.py` / `scatter.py` / `heatmap.py`）。各モジュール
+  は「データを受け取り Plotly の `Figure` を返す」関数を持ち、ツールをまたいで
+  使い回す。個別のグラフ描画ロジックをツールごとに再実装しない。
+- 各ツールの `visualize.py` は `common/charts/` の関数を呼び出し、複数グラフを
+  1つのレポート（HTML）に組み立てる役割に徹する。
+- インタラクティブレポートは大量データで重くなりやすいため、次を基本方針とする。
+  1. **可視化には集計済みの小さいデータだけを渡す** — `analyze.py` 側で
+     表示に必要な粒度まで集計・サンプリングしてから `visualize.py` に渡す。
+     生データ（数百万〜数億行）をそのままグラフライブラリに渡さない。
+  2. **大量点が必要な場合はWebGLレンダラを使う** — Plotly の `scatter` ではなく
+     `scattergl`（WebGL）を使う。`common/charts/scatter.py` 側で既定にする。
+  3. **描画点数に上限を設ける** — 目安として数万点程度（要調整）を超える場合は
+     等間隔サンプリングやビニング集計で自動的に間引く。
+  4. **HTMLファイルサイズを抑える** — 複数グラフを1つのHTMLにまとめる際は
+     `include_plotlyjs="cdn"` を使い、plotly.js本体を毎回埋め込まない。
 
 ## 最重要ルール2: スクリプトには必ず説明資料を残す
 
@@ -95,8 +144,9 @@ AnalyseTool/
 ├── docs/                各スクリプトの説明資料（scripts/ と1対1対応）
 │   └── _template.md     説明資料のテンプレート
 ├── src/analyse_tool/
-│   ├── common/           複数ツールで共有する共通処理
-│   └── <tool_name>/      ツールごとのサブパッケージ（cli.py/io.py/core.py等）
+│   ├── common/
+│   │   └── charts/        グラフ種類ごとの共通モジュール（line.py/bar.py等）
+│   └── <tool_name>/      ツールごとのサブパッケージ（cli.py/io.py/prepare.py等）
 ├── data/                分析対象データ（git管理外・再取得/再生成前提）
 └── output/              スクリプトの出力先（git管理外）
 ```
@@ -108,6 +158,8 @@ AnalyseTool/
 - Python バージョンは `.python-version` に準拠。
 - 可視化（`visualize.py`）でインタラクティブなレポートが必要な場合は
   `plotly` を標準ライブラリとする（初回使用時に `uv add plotly`）。
+- 数百万〜数億行のデータ加工・プロファイリングは `duckdb` + `pyarrow`
+  （Parquet）を標準とする（初回使用時に `uv add duckdb pyarrow`）。
 
 ## スクリプト作成時の進め方
 
