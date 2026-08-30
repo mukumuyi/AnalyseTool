@@ -17,3 +17,14 @@ dependencies = [
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+# src/analyse_tool/__init__.py がまだ存在しない（実体は docs/reference/ に
+# ステージング中）ため、自身をビルド対象パッケージとして扱わせない。
+# src/analyse_tool/ を作って本採用したら、この節ごと削除してよい。
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
