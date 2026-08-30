@@ -20,7 +20,7 @@
 | `docs/repository-structure.md` | リポジトリ構造定義書 |
 | `docs/development-guidelines.md` | 開発ガイドライン |
 | `docs/diagram-guidelines.md` | 図表・ダイアグラムガイドライン |
-| `docs/glossary.md` | ユビキタス言語定義 |
+| `docs/glossary/` | ユビキタス言語定義（`common.md`＝横断用語、`<プロジェクト名>.md`＝プロジェクト固有用語） |
 
 各ファイルに何を書くかは、そのファイル冒頭の見出し構成に従います。
 
