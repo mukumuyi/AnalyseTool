@@ -12,8 +12,8 @@ flowchart LR
     B -->|DatasetProfile| C["② process<br/>(クレンジング/加工)"]
     C -->|DuckDBリレーション| D["③ analyze<br/>(集計・サンプリング)"]
     D -->|集計済みの小さいデータ| E["④ visualize<br/>(グラフ+レポート組み立て)"]
-    E --> F[レポートHTML<br/>output/]
-    B -.->|profile.json| G[(profiles/)]
+    E --> F[レポートHTML<br/>output/プロジェクト名/日付/]
+    B -.->|profile.json| G[(profiles/プロジェクト名/)]
 ```
 
 例外として、`generate_sample_data`のように実データを分析するのではなく
@@ -29,8 +29,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     U[利用者] -->|"uv run python scripts/*.py"| S[分析ツール<br/>Python/DuckDB]
-    S -->|読み込み| P[(data/ or output/<br/>Parquet)]
-    S -->|書き出し| O[(output/<br/>レポートHTML・profile.json)]
+    S -->|読み込み| P[(data/プロジェクト名/ or<br/>output/プロジェクト名/<br/>Parquet)]
+    S -->|書き出し| O[(output/プロジェクト名/日付/<br/>レポートHTML・profile.json)]
     U -->|file://で開く| O
 ```
 
@@ -88,8 +88,9 @@ classDiagram
     ColumnProfile --> Role
 ```
 
-現状は**単一テーブル前提**（`profiles/customers.json`、`profiles/orders.json`
-のように、テーブルごとに独立したプロファイル）。これに対し、`ColumnProfile`に
+現状は**単一テーブル前提**（`profiles/<プロジェクト名>/customers.json`、
+`profiles/<プロジェクト名>/orders.json`のように、テーブルごとに独立した
+プロファイル）。これに対し、`ColumnProfile`に
 他テーブルの列を指す`references`（`ColumnReference{table, column}`）を追加し、
 外部キーに相当する関係を**プロファイル上では定義できる**ようにする（例:
 `orders.customer_id`に`references: {table: "customers", column: "customer_id"}`
@@ -158,7 +159,7 @@ erDiagram
 
 | ツール | 構成 | 備考 |
 | --- | --- | --- |
-| `generate_sample_data` | `cli.py`/`io.py`/`generate.py`（4ステップ構成の例外） | プロファイルJSON→Parquetを`CHUNK_ROWS`単位で生成 |
+| `generate_sample_data` | `cli.py`/`io.py`/`generate.py`（4ステップ構成の例外） | プロファイルJSON→Parquetを`CHUNK_ROWS`単位で生成。`references`対応時は、依存関係のあるプロファイル群をまとめて受け取り参照先→参照元の順で生成する形への拡張が必要（未実装、上記「データモデル定義」参照） |
 | `customer_pref_summary` | `cli.py`/`io.py`/`prepare.py`/`process.py`/`analyze.py`/`visualize.py` | pref×segment集計＋クリック連動明細のリファレンス実装 |
 
 ## ユースケース図、画面遷移図、ワイヤフレーム

@@ -26,11 +26,17 @@ AnalyseTool/
 │       ├── customers.json
 │       └── orders.json
 ├── data/                        分析対象データ（git管理外）
+│   └── <プロジェクト名>/
 ├── output/                      スクリプトの出力先（git管理外）
 │   └── <プロジェクト名>/
 │       ├── index.html           そのプロジェクトの生成物一覧（実行ごとにリンクを追記）
 │       └── <YYYYMMDD>/          実行日
 │           └── <ツール名>_<HHMMSS>.html 等   ファイル名に実行時刻を付与（同日複数回実行しても上書きされない）
+│
+├── tests/                       src/analyse_tool/ と対応するユニットテスト ※本採用後に作成
+│   └── common/
+│       └── charts/
+│           └── test_bar.py
 │
 ├── docs/
 │   ├── product-requirements.md  永続的ドキュメント（プロダクト要求）
@@ -67,8 +73,9 @@ AnalyseTool/
 | `src/analyse_tool/<プロジェクト名>/common/` | そのプロジェクト内の複数ツールだけで共有する処理（無ければ作らない） |
 | `src/analyse_tool/<プロジェクト名>/<ツール名>/` | ツールごとの実装（`cli.py`/`io.py`/`prepare.py`/`process.py`/`analyze.py`/`visualize.py`、または例外的な3モジュール構成） |
 | `profiles/<プロジェクト名>/` | データ定義情報（プロファイル）のJSON。`prepare.py`の出力または手書き |
-| `data/` | 分析対象データ（git管理外・再取得/再生成前提） |
+| `data/<プロジェクト名>/` | 分析対象データ（git管理外・再取得/再生成前提） |
 | `output/<プロジェクト名>/` | スクリプトの出力先（git管理外）。`<YYYYMMDD>/`配下にファイル名へ実行時刻を付与した出力を残し、直下の`index.html`から一覧・リンクできるようにする |
+| `tests/` | `src/analyse_tool/`と対応する構成のユニットテスト（`docs/development-guidelines.md`のテスト規約） |
 | `docs/`（直下） | 永続的ドキュメント一式 |
 | `docs/<プロジェクト名>/` | 本採用後の各ツール説明資料 |
 | `docs/glossary/` | ユビキタス言語。全プロジェクト横断の用語（`common.md`）とプロジェクト固有の用語（`<プロジェクト名>.md`）に分ける |
@@ -140,5 +147,5 @@ AnalyseTool/
   `.gitkeep`を置く。
 - ファイル・ディレクトリの命名規則（英語表記・スネークケース等）の詳細は
   `docs/development-guidelines.md`の「命名規則」で定める。
-- `tests/`の配置ルールは、`docs/development-guidelines.md`のテスト規約と
-  合わせて着手時に定める。
+- `tests/`の配置ルールの詳細は`docs/development-guidelines.md`のテスト規約
+  を参照。
