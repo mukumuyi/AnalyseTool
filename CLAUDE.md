@@ -41,9 +41,13 @@
 
 ## 開発の進め方
 
-- 新規セットアップ時: `docs/development-process.md` の「初回セットアップ時の手順」に従う
-- 機能追加・修正時: `docs/development-process.md` の「機能追加・修正時の手順」に従う
+- 機能追加・修正時: `steering-workflow` skill（`.claude/skills/steering-workflow/`）に従う
+  （手順の正本は `docs/development-process.md` の「機能追加・修正時の手順」）
 - 図表・ダイアグラムを書く際: `docs/diagram-guidelines.md` を参照
+
+初回セットアップ時の手順は、新規プロジェクトを始める際のテンプレートとして
+`docs/development-process.md` にのみ残す（本リポジトリは初回セットアップ済みのため
+ここでは参照しない）。
 
 ## 注意事項
 
