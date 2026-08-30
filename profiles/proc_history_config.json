@@ -15,7 +15,7 @@
   ],
   "steps_per_routing": { "min": 600, "max": 800 },
   "eqp_count": 400,
-  "eqp_per_ope_name": { "min": 6, "max": 10 },
+  "eqp_per_ope_name": { "min": 8, "max": 15 },
   "eqp_processing_minutes": {
     "distribution": "lognormal",
     "mean": 3.6889,
@@ -30,6 +30,6 @@
     "min": 1,
     "max": 4320
   },
-  "lot_count": 5000,
+  "lot_count": 6000,
   "time_range": { "start": "2026-01-01T00:00:00", "end": "2026-06-30T23:59:59" }
 }

@@ -2,8 +2,9 @@
 
 品目階層（prodspec_id→mainpd_id）→設備マスタ（固定処理時間）→
 ルーティング（ope_no×ope_seq）→ロット割当→ロットごとの行生成、という
-順に組み立てる。行数は数万件規模を想定しており、`generate_sample_data`の
-ような列ごとの一括ベクトル化はせず、ロット単位のシンプルなループで
+順に組み立てる。行数は数百万行程度までを想定しており（`lot_count`と
+`steps_per_routing`で調整可能）、`generate_sample_data`のような列ごとの
+一括ベクトル化はせず、ロット単位のシンプルなループで
 時系列の依存関係（前工程のend_timeより後ろに次工程のstart_timeが来る）を
 正しく再現する。
 """
@@ -123,10 +124,29 @@ def _build_ope_eqp_candidates(
     """`ope_no`ごとに、使用可能な`eqp_id`の候補群を割り当てる（多対多）。
 
     候補台数は`ope_no`ごとに`eqp_per_ope_name`（最小〜最大）の範囲で
-    個別に決める。
+    個別に決める。全`eqp_id`をできるだけ使い切れるよう、次の2段階で
+    割り当てる。
+
+    1. ラウンドロビン割当: 全`eqp_id`をシャッフルし、`ope_name_pool`に
+       順番に1台ずつ配る。これにより、全`eqp_id`が必ずどこかの`ope_no`の
+       候補に最低1回入ることを構造的に保証する。
+    2. 不足分の追加抽選: ラウンドロビンで入った台数が、`ope_no`ごとに
+       決めた目標台数（`eqp_per_ope_name`）に届いていなければ、まだその
+       `ope_no`に入っていない`eqp_id`から追加でランダムに抽選する。
+
+    ラウンドロビンで入った台数が目標台数を上回る場合は、カバレッジの
+    保証を崩さないよう間引かない（候補数が目標よりやや多くなることを
+    許容する）。
     """
+    base_assignment: OpeEqpCandidates = {ope_no: [] for ope_no in ope_name_pool}
+    shuffled_eqp_ids = list(rng.permutation(eqp_ids))
+    for i, eqp_id in enumerate(shuffled_eqp_ids):
+        ope_no = ope_name_pool[i % len(ope_name_pool)]
+        base_assignment[ope_no].append(eqp_id)
+
     candidates: OpeEqpCandidates = {}
     for ope_no in ope_name_pool:
+        assigned = base_assignment[ope_no]
         k = min(
             int(
                 rng.integers(
@@ -135,7 +155,12 @@ def _build_ope_eqp_candidates(
             ),
             len(eqp_ids),
         )
-        candidates[ope_no] = list(rng.choice(eqp_ids, size=k, replace=False))
+        if len(assigned) >= k:
+            candidates[ope_no] = assigned
+            continue
+        remaining = [eqp_id for eqp_id in eqp_ids if eqp_id not in set(assigned)]
+        extra = list(rng.choice(remaining, size=k - len(assigned), replace=False))
+        candidates[ope_no] = assigned + extra
     return candidates
 
 
