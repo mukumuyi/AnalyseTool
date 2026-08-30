@@ -39,7 +39,8 @@
      後ろになる**ことを保証する
    - 行（`lot_id`/`prodspec_id`/`mainpd_id`/`ope_no`/`ope_seq`/`eqp_id`/
      `start_time`/`end_time`）を1件積む
-7. 全ロットぶんの行をまとめて`pyarrow.Table`にし、Parquetへ書き出す
+7. 全ロットぶんの行をまとめて`pyarrow.Table`にし、生成結果を検証してから
+   Parquetへ書き出す（検証は次項「生成結果の自動検証」を参照）
 
 行数が数万件規模（`lot_count`×平均工程数）を想定しており、
 `generate_sample_data`のようなチャンク分割書き出しは不要。一度に
@@ -49,22 +50,57 @@
 `generate_sample_data`参考実装はこの規約に沿っていないが、今回は新規実装
 として規約を満たす）。
 
+## 生成結果の自動検証（レビュー指摘反映: 新規追加）
+
+DuckDBで人手で確認するだけでなく、**生成ロジック自身が決まったルールを
+守っているかをその場で自動検証する**ステップを`validate.py`に実装し、
+`main()`が生成直後・書き出し前に必ず呼び出す。違反があれば理由を明示して
+異常終了させ（Parquetは書き出さない）、壊れたデータに気づかないまま出力
+してしまう事態を防ぐ。
+
+検証する主なルール（＝これまで合意してきた生成ルールそのもの）：
+
+- 全行で`start_time < end_time`が成り立つ
+- ロットごとに`ope_seq`が1から欠番なく連番になっている
+- 同一ロット内で、工程`N+1`の`start_time`が工程`N`の`end_time`より
+  必ず後ろになっている（同時刻・逆転がない）
+- 同じ`eqp_id`を使った行はすべて`end_time - start_time`が同一の固定値に
+  なっている（設備ごとの処理時間が本当に一定か）
+- `mainpd_id`は常に同じ`prodspec_id`に紐づいている（階層の矛盾がない）
+
+`validate.py`は`def validate_table(table: pa.Table) -> list[str]`という
+「`pyarrow.Table`を受け取り、違反内容の説明文リストを返す（空なら問題無し）」
+純粋関数として実装する。`__init__.py`の`main()`は、このリストが空でなければ
+違反内容を全て表示して`SystemExit`で異常終了する。
+
 ## 変更するコンポーネント（新規作成のみ、既存ファイルの変更は無し）
+
+**モジュール構成（レビュー指摘反映: 1ディレクトリに集約）**: 既存の
+`generate_sample_data`は「トップレベルのエントリスクリプト」＋
+「`analyse_tool/`配下に分散したパッケージ」の2箇所に分かれているが、
+今回は`docs/reference/`直下にこのツール専用の1ディレクトリを作り、
+エントリポイントを含めて中身をすべてそこにまとめる。
 
 ```text
 docs/reference/
-├── generate_proc_history.py            # エントリポイント
-├── generate_proc_history.md            # 説明資料（処理概要/IO/実行オプション）
-└── analyse_tool/generate_proc_history/
-    ├── __init__.py                     # main()：cli→config読込→生成→書き出し
-    ├── cli.py                          # 引数定義（--config/--output/--seed/--lot-count）
-    ├── config.py                       # ProcHistoryConfig（設定JSONのデータ構造・読込）
-    ├── io.py                           # 設定読込・Parquet安全書き込み
-    └── generate.py                     # 生成ロジック本体（上記1〜7の純粋関数群）
+├── generate_proc_history/              # このツール一式をここに集約
+│   ├── __init__.py                     # main()：config読込→生成→検証→書き出し
+│   ├── __main__.py                     # `python -m generate_proc_history`用
+│   ├── cli.py                          # 引数定義（--config/--output/--seed/--lot-count）
+│   ├── config.py                       # ProcHistoryConfig（設定JSONのデータ構造・読込）
+│   ├── io.py                           # 設定読込・Parquet安全書き込み
+│   ├── generate.py                     # 生成ロジック本体（上記1〜7の純粋関数群）
+│   └── validate.py                     # 生成結果の検証（上記「生成結果の自動検証」）
+└── generate_proc_history.md            # 説明資料（処理概要/IO/実行オプション。既存の
+                                         # `generate_sample_data.md`と同じ並びに置く）
 
 profiles/
 └── proc_history_config.json            # ProcHistoryConfigの実体（後述）
 ```
+
+実行は`PYTHONPATH=docs/reference uv run python -m generate_proc_history
+--config ... --output ...`とする（`analyse_tool`パッケージには一切触れず、
+`generate_sample_data`との依存も発生しない）。
 
 - `common/`配下の既存モジュール（`profile.py`/`report.py`/`charts/`）は
   変更しない。`ProcHistoryConfig`は`DatasetProfile`と別物のため、
@@ -118,10 +154,12 @@ import annotations`）に揃える。
   「純粋な実装には必ずユニットテストを書く」とされているが、既存の参考実装
   （`generate_sample_data`/`customer_pref_summary`）も`docs/reference/`配下に
   ある間はテストを持たない運用になっている（`tests/`ディレクトリ自体が
-  未作成）。今回もこの前例を踏襲し、`docs/reference/`段階ではユニット
-  テストを追加せず、後述の「検証」（生成結果に対するDuckDBでの確認クエリ）
-  で品質を担保する。`src/`への本採用時に、他の参考実装とまとめて
-  `tests/`配下にユニットテストを追加する（`docs/product-requirements.md`の
+  未作成）。今回もこの前例を踏襲し、`docs/reference/`段階では正式な
+  pytestは追加しない。代わりに、生成のたびに自動で走る`validate.py`
+  （上記「生成結果の自動検証」）を品質担保の主手段とする。これは
+  「テストの代わり」ではなく「生成ロジック自体の一部」という位置づけで、
+  `src/`への本採用時には`validate.py`のロジックをベースに正式な
+  ユニットテストへ引き上げる（`docs/product-requirements.md`の
   「既知のリスク」に記載されている、参考実装と本採用の乖離リスクと同種の
   扱いとする）。
 - **依存パッケージ**: 追加は不要（`numpy`/`pyarrow`は`pyproject.toml`に
@@ -129,13 +167,13 @@ import annotations`）に揃える。
 
 ## 検証方法（実装後に実施）
 
-1. 生成コマンドが完了すること
+1. 生成コマンドが完了し、`validate.py`による自動検証もパスすること
    ```bash
-   PYTHONPATH=docs/reference uv run python docs/reference/generate_proc_history.py \
+   PYTHONPATH=docs/reference uv run python -m generate_proc_history \
      --config profiles/proc_history_config.json \
      --output output/proc_history_sample.parquet
    ```
-2. DuckDBで以下を確認する
+2. 念のためDuckDBでも以下を確認する（自動検証と同じ観点の再確認）
    - 総行数が`lot_count`×平均工程数に近いこと
    - ロットごとに`ope_seq`が1から連番で欠番なく並んでいること
    - 同一ロット内で工程`N+1`の`start_time`が工程`N`の`end_time`より
