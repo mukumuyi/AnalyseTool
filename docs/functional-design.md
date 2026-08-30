@@ -130,6 +130,7 @@ erDiagram
 | --- | --- | --- |
 | `common/profile.py` | `DatasetProfile`/`ColumnProfile`の定義、保存・読込、`profile_from_parquet()` | 実装済み |
 | `common/report.py` | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て | 実装済み（1段ドリルダウンのみ） |
+| `common/output_index.py` | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 未実装（設計合意済み） |
 | `common/charts/bar.py` | 積み上げ棒グラフ | 実装済み |
 | `common/charts/box.py` | 箱ひげ図（EDAでの分布・外れ値確認） | 未実装（設計合意済み） |
 | `common/charts/histogram.py` | ヒストグラム（EDAでの分布形状確認、`color`で重ね描き） | 未実装（設計合意済み） |

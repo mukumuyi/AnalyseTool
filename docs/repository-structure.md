@@ -28,6 +28,10 @@ AnalyseTool/
 ├── data/                        分析対象データ（git管理外）
 ├── output/                      スクリプトの出力先（git管理外）
 │   └── <プロジェクト名>/
+│       ├── index.html           そのプロジェクトの生成物一覧（実行ごとにリンクを追記）
+│       └── <YYYYMMDD>/          実行日
+│           └── <HHMMSS>/        実行時刻（同日複数回実行しても上書きされない）
+│               └── <ツール名>.html 等
 │
 ├── docs/
 │   ├── product-requirements.md  永続的ドキュメント（プロダクト要求）
@@ -65,7 +69,7 @@ AnalyseTool/
 | `src/analyse_tool/<プロジェクト名>/<ツール名>/` | ツールごとの実装（`cli.py`/`io.py`/`prepare.py`/`process.py`/`analyze.py`/`visualize.py`、または例外的な3モジュール構成） |
 | `profiles/<プロジェクト名>/` | データ定義情報（プロファイル）のJSON。`prepare.py`の出力または手書き |
 | `data/` | 分析対象データ（git管理外・再取得/再生成前提） |
-| `output/<プロジェクト名>/` | スクリプトの出力先（git管理外） |
+| `output/<プロジェクト名>/` | スクリプトの出力先（git管理外）。`<YYYYMMDD>/<HHMMSS>/`配下に実行ごとの出力を残し、直下の`index.html`から一覧・リンクできるようにする |
 | `docs/`（直下） | 永続的ドキュメント一式 |
 | `docs/<プロジェクト名>/` | 本採用後の各ツール説明資料 |
 | `docs/glossary/` | ユビキタス言語。全プロジェクト横断の用語（`common.md`）とプロジェクト固有の用語（`<プロジェクト名>.md`）に分ける |
@@ -97,6 +101,23 @@ AnalyseTool/
 `generate_sample_data`）は`docs/reference/`へ移動済みで、最初の本採用
 （`src/`+`scripts/`への移行）が完了したら、`docs/reference/`ごと削除する
 想定。
+
+### `output/`の構成
+
+`output/`直下がフラットに散らかるのを防ぐため、実行ごとの出力は
+`output/<プロジェクト名>/<YYYYMMDD>/<HHMMSS>/`配下に書き出す（同日に
+複数回実行しても上書きされず、実行履歴が残る）。
+
+`output/<プロジェクト名>/index.html`は、そのプロジェクトの生成物の目次
+（実行日時・ツール名と、各`<YYYYMMDD>/<HHMMSS>/`配下のレポートへの
+リンクの一覧）で、`file://`で開いてそのままブラウザ遷移で辿れるように
+する。実行のたびに新しいエントリを追記して更新する。
+
+この追記・更新処理は各ツールの`io.py`が個別に実装するのではなく、
+`src/analyse_tool/common/`に共通ヘルパー（例:
+`output_index.py`の`register_output()`）を置き、各ツールの`io.py`が
+レポート等を書き出した後にこれを呼び出す形にする（`docs/functional-design.md`
+の「コンポーネント設計」を参照）。
 
 ### ドキュメントの置き場所
 
