@@ -122,8 +122,8 @@ profiles/
   "steps_per_routing": { "min": 5, "max": 8 },
   "eqp_count": 24,
   "eqp_per_ope_name": 4,
-  "eqp_processing_minutes": { "distribution": "lognormal", "mean": 40, "stddev": 10, "min": 10, "max": 120 },
-  "queue_minutes": { "distribution": "lognormal", "mean": 30, "stddev": 60, "min": 1, "max": 4320 },
+  "eqp_processing_minutes": { "distribution": "lognormal", "mean": 3.6889, "stddev": 0.25, "min": 10, "max": 120 },
+  "queue_minutes": { "distribution": "lognormal", "mean": 3.4012, "stddev": 1.0, "min": 1, "max": 4320 },
   "lot_count": 5000,
   "time_range": { "start": "2026-01-01T00:00:00", "end": "2026-06-30T23:59:59" }
 }
@@ -131,6 +131,10 @@ profiles/
 
 - `mean`/`stddev`は`common/profile.py`の`lognormal`と同じ扱い（対数正規分布の
   元になる正規分布側のパラメータ）とし、`min`/`max`でクリップする。
+  例えば`eqp_processing_minutes`を「平均40分程度」にしたい場合は
+  `mean`に`ln(40)≈3.6889`を設定する（`40`をそのまま入れると`exp(40)`
+  相当の桁になり、ほぼ全ての値が`max`に張り付いてしまう。実装時に
+  この点を実際に検証し、上記の値に補正した）。
 - `seed`は`DatasetProfile`同様に設定ファイルへ持たせず、`generate_sample_data`
   に揃えて**CLI引数`--seed`（既定0）**でのみ指定する。
 - `lot_count`は`generate_sample_data`の`--rows`に相当するものとして、

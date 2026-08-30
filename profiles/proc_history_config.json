@@ -1,0 +1,35 @@
+{
+  "name": "proc_history",
+  "prodspec_count": 30,
+  "mainpd_per_prodspec": { "min": 2, "max": 6 },
+  "ope_name_pool": [
+    "受入",
+    "前処理",
+    "主加工",
+    "組立",
+    "調整",
+    "外観検査",
+    "機能検査",
+    "梱包",
+    "出荷検査"
+  ],
+  "steps_per_routing": { "min": 5, "max": 8 },
+  "eqp_count": 24,
+  "eqp_per_ope_name": 4,
+  "eqp_processing_minutes": {
+    "distribution": "lognormal",
+    "mean": 3.6889,
+    "stddev": 0.25,
+    "min": 10,
+    "max": 120
+  },
+  "queue_minutes": {
+    "distribution": "lognormal",
+    "mean": 3.4012,
+    "stddev": 1.0,
+    "min": 1,
+    "max": 4320
+  },
+  "lot_count": 5000,
+  "time_range": { "start": "2026-01-01T00:00:00", "end": "2026-06-30T23:59:59" }
+}
