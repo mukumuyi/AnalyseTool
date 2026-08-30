@@ -1,40 +1,41 @@
 # AnalyseTool
 
-DATA分析で使うツールスクリプトを管理するプロジェクト。
+DATA分析で使うツールスクリプトを溜めていく社内ツール集。目的・背景は
+[docs/product-requirements.md](docs/product-requirements.md)を参照。
 
 ## セットアップ
 
 ```bash
-cd ~/workspace/bussiness/AnalyseTool
 uv sync
 ```
 
-## 使い方
+## 現在の状態
 
-分析用スクリプトは `scripts/` に1ファイル=1ツールで置く。
+まだ`src/`・`scripts/`への本採用は行われておらず、動作確認済みの試作実装が
+[docs/reference/](docs/reference/)に置かれている段階です。
+
+| ツール | 状態 | 説明資料 | 概要 |
+| --- | --- | --- | --- |
+| `generate_sample_data` | リファレンス実装（`docs/reference/`） | [docs/reference/generate_sample_data.md](docs/reference/generate_sample_data.md) | データ定義情報（プロファイル）からサンプルデータ（Parquet）を生成する |
+| `customer_pref_summary` | リファレンス実装（`docs/reference/`） | [docs/reference/customer_pref_summary.md](docs/reference/customer_pref_summary.md) | 顧客マスタをprefごとに集計し、segment色分け・クリックで明細が見える棒グラフレポートを作る |
+
+## 使い方（本採用後）
+
+本採用後の各ツールは`scripts/<プロジェクト名>/`に1ファイル=1ツールで置き、
+次のように実行する。
 
 ```bash
-uv run python scripts/<スクリプト名>.py [オプション]
+uv run python scripts/<プロジェクト名>/<ツール名>.py [オプション]
 ```
 
-各スクリプトの処理概要・入出力・実行オプションは `docs/<スクリプト名>.md`
-に対応するドキュメントがある（一覧は下表、追加時は都度更新）。
+各ツールの処理概要・入出力・実行オプションは
+`docs/<プロジェクト名>/<ツール名>.md`に説明資料を用意する（本採用時に上表を
+更新する）。
 
-| スクリプト | 説明資料 | 概要 |
-| --- | --- | --- |
-| `generate_sample_data.py` | [docs/generate_sample_data.md](docs/generate_sample_data.md) | データ定義情報（プロファイル）からサンプルデータ（Parquet）を生成する |
-| `customer_pref_summary.py` | [docs/customer_pref_summary.md](docs/customer_pref_summary.md) | 顧客マスタをprefごとに集計し、segment色分け・クリックで明細が見える棒グラフレポートを作る |
-
-新しいスクリプトを追加するときのルールは [CLAUDE.md](CLAUDE.md) を参照
-（要点: スクリプトを追加・変更したら `docs/` の説明資料も必ず更新する）。
+新しいツールを追加するときのルールは[CLAUDE.md](CLAUDE.md)を参照
+（要点: ツールを追加・変更したら対応する説明資料も必ず更新する）。
 
 ## 構成
 
-| パス | 内容 |
-| --- | --- |
-| `scripts/` | 分析ツールスクリプト本体 |
-| `docs/` | 各スクリプトの説明資料（処理概要・I/O・実行オプション） |
-| `src/analyse_tool/` | 複数スクリプトで共有する共通処理・ツールごとの実装 |
-| `profiles/` | データ定義情報（プロファイル）のJSON。`prepare.py`の出力 or 手書き |
-| `data/` | 分析対象データ置き場（git管理外） |
-| `output/` | スクリプトの出力先（git管理外） |
+フォルダ構成の詳細は
+[docs/repository-structure.md](docs/repository-structure.md)を参照。
