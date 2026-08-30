@@ -120,12 +120,23 @@ def _build_ope_eqp_candidates(
     config: ProcHistoryConfig,
     rng: np.random.Generator,
 ) -> OpeEqpCandidates:
-    """`ope_no`ごとに、使用可能な`eqp_id`の候補群を割り当てる（多対多）。"""
-    k = min(config.eqp_per_ope_name, len(eqp_ids))
-    return {
-        ope_no: list(rng.choice(eqp_ids, size=k, replace=False))
-        for ope_no in ope_name_pool
-    }
+    """`ope_no`ごとに、使用可能な`eqp_id`の候補群を割り当てる（多対多）。
+
+    候補台数は`ope_no`ごとに`eqp_per_ope_name`（最小〜最大）の範囲で
+    個別に決める。
+    """
+    candidates: OpeEqpCandidates = {}
+    for ope_no in ope_name_pool:
+        k = min(
+            int(
+                rng.integers(
+                    config.eqp_per_ope_name.min, config.eqp_per_ope_name.max + 1
+                )
+            ),
+            len(eqp_ids),
+        )
+        candidates[ope_no] = list(rng.choice(eqp_ids, size=k, replace=False))
+    return candidates
 
 
 def _assign_lot_mainpd(

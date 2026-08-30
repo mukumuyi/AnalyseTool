@@ -97,6 +97,13 @@ PYTHONPATH=docs/reference uv run python -m generate_proc_history \
 - `ope_no`（作業名）・`prodspec_id`/`eqp_id`の命名や件数は仮の値。実際の
   値一覧が分かった場合は`profiles/proc_history_config.json`の該当値を
   差し替えるだけでよい。
+- `steps_per_routing`（現在600〜800）が`ope_name_pool`の件数より大きい
+  場合、`_build_routing()`は同じ`ope_no`を繰り返し使う（重複あり）。
+  半導体工程のように少数の工程種別を何百回も通過する実態を想定した挙動。
+- `eqp_per_ope_name`は`{min, max}`の範囲指定（`ope_no`ごとに個別に台数を
+  決める）。`eqp_count`（設備総数）を増やしても、`ope_name_pool`の件数×
+  `eqp_per_ope_name`の上限を大きく超える台数は使われない点に注意
+  （余らせず使い切りたい場合は両方のバランスを調整する）。
 - 「理由コード」（着工遅延の原因）を持つテーブルは今回のスコープに
   含めていない。`proc_history`から得られるのは工程間の待ち時間（着工待ち）
   の大小までで、"なぜ"待たされたかは別テーブルが必要（将来の拡張候補）。

@@ -57,7 +57,7 @@ class ProcHistoryConfig:
     ope_name_pool: list[str]
     steps_per_routing: MinMax
     eqp_count: int
-    eqp_per_ope_name: int
+    eqp_per_ope_name: MinMax
     eqp_processing_minutes: LognormalSpec
     queue_minutes: LognormalSpec
     lot_count: int
@@ -71,6 +71,7 @@ class ProcHistoryConfig:
         d = dict(d)
         d["mainpd_per_prodspec"] = MinMax(**d["mainpd_per_prodspec"])
         d["steps_per_routing"] = MinMax(**d["steps_per_routing"])
+        d["eqp_per_ope_name"] = MinMax(**d["eqp_per_ope_name"])
         d["eqp_processing_minutes"] = LognormalSpec(**d["eqp_processing_minutes"])
         d["queue_minutes"] = LognormalSpec(**d["queue_minutes"])
         d["time_range"] = TimeRange(**d["time_range"])

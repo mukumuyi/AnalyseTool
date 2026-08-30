@@ -118,10 +118,10 @@ profiles/
   "name": "proc_history",
   "prodspec_count": 30,
   "mainpd_per_prodspec": { "min": 2, "max": 6 },
-  "ope_name_pool": ["受入", "前処理", "主加工", "組立", "調整", "外観検査", "機能検査", "梱包", "出荷検査"],
-  "steps_per_routing": { "min": 5, "max": 8 },
-  "eqp_count": 24,
-  "eqp_per_ope_name": 4,
+  "ope_name_pool": ["受入一", "受入二", "...(100件)"],
+  "steps_per_routing": { "min": 600, "max": 800 },
+  "eqp_count": 400,
+  "eqp_per_ope_name": { "min": 6, "max": 10 },
   "eqp_processing_minutes": { "distribution": "lognormal", "mean": 3.6889, "stddev": 0.25, "min": 10, "max": 120 },
   "queue_minutes": { "distribution": "lognormal", "mean": 3.4012, "stddev": 1.0, "min": 1, "max": 4320 },
   "lot_count": 5000,
@@ -139,6 +139,15 @@ profiles/
   に揃えて**CLI引数`--seed`（既定0）**でのみ指定する。
 - `lot_count`は`generate_sample_data`の`--rows`に相当するものとして、
   CLI引数`--lot-count`で上書き可能にする（省略時は設定ファイルの値を使う）。
+- **`eqp_per_ope_name`は当初固定の整数だったが、実装後のユーザー指示により
+  `{min, max}`のレンジに変更した**（`ope_no`ごとに個別に候補台数を決める）。
+  `config.py`の型を`int`→`MinMax`に、`generate.py`の
+  `_build_ope_eqp_candidates()`を「`ope_no`ごとに範囲内で個別に台数を
+  引く」実装に修正済み。
+- `ope_name_pool`は実際のデータ規模検証のため100件に拡張した
+  （`steps_per_routing`も600〜800に拡張。プール件数よりステップ数の方が
+  大きいため、同じ`ope_no`を繰り返し使うルーティングになる＝
+  `_build_routing()`の`replace=True`分岐がここで実際に使われる）。
 
 `config.py`には`ProcHistoryConfig`（および`MinMax`・`LognormalSpec`等の
 小さいデータクラス）を定義し、`to_dict()`/`from_dict()`（または
