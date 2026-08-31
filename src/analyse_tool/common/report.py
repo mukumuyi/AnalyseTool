@@ -334,7 +334,18 @@ window.STAGE3_CURVE_NUMBER = {stage3_curve_number};
   stage1Div.on("plotly_click", function (eventData) {{
     const key = String(eventData.points[0].x);
     document.querySelectorAll(".stage2-fig").forEach(function (el) {{
-      el.style.display = el.dataset.key === key ? "block" : "none";
+      const isTarget = el.dataset.key === key;
+      el.style.display = isTarget ? "block" : "none";
+      if (isTarget) {{
+        // display:noneのままPlotly.newPlot()済みのdivは幅を測れず誤った
+        // サイズで描画されたままになる（configのresponsive:trueは
+        // display:none→blockの切り替えには自動追従しない）。表示に
+        // 切り替えた直後にPlotlyへ再計算させる。
+        const plotDiv = el.querySelector(".plotly-graph-div");
+        if (plotDiv) {{
+          Plotly.Plots.resize(plotDiv);
+        }}
+      }}
     }});
     window.EqpDrilldown.onStage1Select(key);
   }});

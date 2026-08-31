@@ -69,6 +69,33 @@ def test_build_multi_stage_drilldown_html_hides_non_default_stage2_figs():
     assert "display:block" in html[e2_start:e2_style_end]
 
 
+def test_build_multi_stage_drilldown_html_resizes_stage2_fig_on_show():
+    # 段1クリックでdisplay:blockに切り替えた⑥-2グラフをPlotlyへ
+    # 再計算させる処理が埋め込まれていること（表示幅不整合バグの回帰確認）。
+    html = build_multi_stage_drilldown_html(
+        title="t",
+        lead_sections_html=[],
+        stage1_fig=_bar_fig(["E1", "E2"]),
+        stage1_heading="段1",
+        stage2_figs={"E1": _bar_fig([1]), "E2": _bar_fig([2])},
+        stage2_default_key="E1",
+        stage2_heading="段2",
+        stage3_default_fig=_bar_fig([0]),
+        stage3_heading="段3",
+        stage3_curve_number=0,
+        stage4_heading="段4",
+        lot_detail_columns=["lot_id"],
+        lot_detail_data={"lot_id": []},
+        domain_js="",
+    )
+
+    # 表示側（isTarget）に切り替えるブロックの直後で呼ばれていること
+    # （非表示にする側では呼ばれない＝毎回無駄な再計算をしないこと）を確認する。
+    if_target_index = html.index("if (isTarget) {")
+    resize_index = html.index("Plotly.Plots.resize(plotDiv)")
+    assert if_target_index < resize_index < if_target_index + 400
+
+
 def test_build_multi_stage_drilldown_html_escapes_disclaimer_text():
     html = build_multi_stage_drilldown_html(
         title="t",
