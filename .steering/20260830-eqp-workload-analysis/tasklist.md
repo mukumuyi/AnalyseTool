@@ -8,18 +8,18 @@
 
 ### 第1層（見た目の型）
 
-- [ ] 1. `common/charts/bar.py`に`color`省略時の単色棒モードを追加する
+- [x] 1. `common/charts/bar.py`に`color`省略時の単色棒モードを追加する
       （既存`stacked_bar()`の引数をオプショナル化。①②③で使用）
-- [ ] 2. `common/charts/barline.py`を新規実装する（棒＋第2軸の折れ線。
+- [x] 2. `common/charts/barline.py`を新規実装する（棒＋第2軸の折れ線。
       ⑥-1・⑥-2で共用）
-- [ ] 3. `common/charts/area.py`を新規実装する（積み上げ面・階段状対応。
+- [x] 3. `common/charts/area.py`を新規実装する（積み上げ面・階段状対応。
       仕掛数量推移の3分類積み上げで使用）
-- [ ] 4. `common/charts/gantt.py`を新規実装する（区間の水平棒。ロット
+- [x] 4. `common/charts/gantt.py`を新規実装する（区間の水平棒。ロット
       区間は1本の`go.Bar`に配列でまとめる。design.md 5-2節の軽量化策・
       ラベル出し分けを反映）
-- [ ] 5. `common/charts/scatter.py`を新規実装する（`scattergl`固定。
+- [x] 5. `common/charts/scatter.py`を新規実装する（`scattergl`固定。
       ④⑤で使用）
-- [ ] 6. 上記5モジュールの純粋関数部分にユニットテストを書く
+- [x] 6. 上記5モジュールの純粋関数部分にユニットテストを書く
       （`tests/common/charts/`）
 
 ### 第2層（分析の型）
@@ -126,4 +126,11 @@
 
 ## 進捗状況
 
-未着手。
+第1層（タスク1〜6）完了。実装にあたり、本ツールが本リポジトリ初の
+「本採用」であるため`pyproject.toml`の`[tool.uv] package = false`を解除
+（`docs/architecture.md`の記載通り）し、`analyse_tool`を実際にimport可能な
+パッケージとしてビルドされるようにした。あわせて`pandas`の型スタブ
+（`pandas-stubs`）を開発依存に追加し、`plotly`/`duckdb`（型スタブ未配布）は
+`pyproject.toml`の`[[tool.mypy.overrides]]`でimportエラーのみ無視するよう
+設定した（本ツールで初めて`mypy`が`src/`配下の実コードを型チェックする
+ため、リポジトリ共通の設定として一度だけ必要になったもの）。
