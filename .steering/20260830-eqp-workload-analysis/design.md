@@ -247,14 +247,15 @@ Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパ
 ## 8. 影響範囲の分析（実装後に反映する永続的ドキュメント）
 
 - `docs/functional-design.md`
-  - コンポーネント表: `pareto.py`/`barline.py`/`area.py`/`gantt.py`/
-    `twograph.py`/`scatter.py`を「実装済み」に更新し、「見た目の型（第1層）
-    ／分析の型（第2層）」という層構造を追記する
-  - 「ドリルダウンの二段拡張」節: 実際に4段階まで一般化したことを追記し、
-    `build_multi_stage_drilldown_html()`の設計を反映（各段は
-    `twograph.py`のsubplot構成も含め「1段＝1Figure」で統一されたことも
-    明記）
-  - 「ツールごとの実装」表に`eqp_workload_analysis`を追加
+  - 「見た目の型（第1層）／分析の型（第2層）」という層構造の原則、および
+    `common/charts/`コンポーネント表・`common/report.py`のドリルダウン
+    設計方針（各段は「1段＝1Figure」）は、**design承認時点で先行反映済み**
+    （設計は実装より前から確定している一般原則のため）。実装後は各モジュール
+    の状態を「未実装（設計合意済み）」→「実装済み」に更新するだけでよい
+  - 「ツールごとの実装」表に`eqp_workload_analysis`を追加（実装後）
+- `docs/development-guidelines.md`
+  - `visualize.py`肥大化対策（1セクション1関数・2ツール以上で共通化する
+    までは`common/`に先回りしない）は**design承認時点で先行反映済み**
 - `docs/repository-structure.md`
   - 「現時点では具体的なプロジェクトが1つも本採用されていない」という
     記述を、`trial_factory`が最初の本採用プロジェクトであることが分かる

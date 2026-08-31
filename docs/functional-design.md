@@ -125,20 +125,45 @@ erDiagram
 
 ## コンポーネント設計
 
+### `common/charts/`の層構造（見た目の型／分析の型）
+
+`common/charts/`配下のグラフモジュールは、次の2層に分けて設計する
+（`eqp_workload_analysis`の設計時（`.steering/20260830-eqp-workload-analysis/design.md`）
+に確定した方針。以降に追加するグラフもこれに従う）。
+
+- **第1層＝見た目の型**: 「棒＋第2軸の折れ線」「積み上げ面」「区間の水平棒」
+  といった、描画そのものの型。`DataFrame`等を受け取って`go.Figure`を返す
+  関数に加え、`twograph.py`のように複数の型を1つのFigure（subplot）に
+  まとめたい場合のために「既存の`fig`にtraceを追加する関数」
+  （例: `add_gantt_traces(fig, row, col, ...)`）も持たせる。
+- **第2層＝分析の型**: 「降順ソート＋累積構成比＋80%目安線」（パレート図）
+  や「x軸を共有する2段組」（twograph）といった、集計データの見せ方の
+  作法。実際の描画は第1層に委譲し、自分では`go.Figure`を組み立てない。
+- **依存は上位層→下位層の一方向のみ**。第1層同士・第2層同士に依存関係を
+  作らない（同じ理由の重複実装を防ぐため。例: パレート図と装置稼働系の
+  グラフは同じ「棒＋第2軸の折れ線」なので、どちらも第1層の
+  `barline.py`に委譲し、二重実装しない）。
+- ツール固有の「どのグラフをどの段に置くか」は各ツールの`visualize.py`
+  が持ち、`common/`には持ち込まない（`visualize.py`の肥大化対策は
+  `docs/development-guidelines.md`を参照）。
+
 ### 共通コンポーネント（`common/`）
 
-| モジュール | 役割 | 状態 |
-| --- | --- | --- |
-| `common/profile.py` | `DatasetProfile`/`ColumnProfile`の定義、保存・読込、`profile_from_parquet()` | 実装済み |
-| `common/report.py` | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て | 実装済み（1段ドリルダウンのみ） |
-| `common/output_index.py` | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 未実装（設計合意済み） |
-| `common/charts/bar.py` | 積み上げ棒グラフ | 実装済み |
-| `common/charts/box.py` | 箱ひげ図（EDAでの分布・外れ値確認） | 未実装（設計合意済み） |
-| `common/charts/histogram.py` | ヒストグラム（EDAでの分布形状確認、`color`で重ね描き） | 未実装（設計合意済み） |
-| `common/charts/pie.py` | 円グラフ（構成比） | 未実装（設計合意済み） |
-| `common/charts/scatter.py` | 散布図（`scattergl`固定、WebGL） | 未実装（設計合意済み） |
-| `common/charts/pareto.py` | パレート図（棒+累積構成比の二軸、独立モジュール） | 未実装（設計合意済み） |
-| `common/charts/timeline.py` | ガントチャート（期間の横棒） | 未実装（設計合意済み） |
+| モジュール | 層 | 役割 | 状態 |
+| --- | --- | --- | --- |
+| `common/profile.py` | - | `DatasetProfile`/`ColumnProfile`の定義、保存・読込、`profile_from_parquet()` | 実装済み |
+| `common/report.py` | - (ドリルダウン機構) | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て。各段は1つの`go.Figure`を渡す想定（複数グラフを1段にまとめたい場合は、その合成自体を第2層のchartモジュール側の責務とし、`report.py`側では特別扱いしない） | 実装済み（1段ドリルダウンのみ）。N段への一般化は`.steering/20260830-eqp-workload-analysis/design.md`で設計確定、実装待ち |
+| `common/output_index.py` | - | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 未実装（設計合意済み） |
+| `common/charts/bar.py` | 第1層 | 積み上げ棒グラフ（`color`省略時の単色モードを追加予定） | 実装済み |
+| `common/charts/barline.py` | 第1層 | 棒＋第2軸の折れ線 | 未実装（設計合意済み） |
+| `common/charts/area.py` | 第1層 | 積み上げ面グラフ（階段状も可） | 未実装（設計合意済み） |
+| `common/charts/gantt.py` | 第1層 | 区間の水平棒（並行処理枠等の複数行に対応） | 未実装（設計合意済み） |
+| `common/charts/scatter.py` | 第1層 | 散布図（`scattergl`固定、WebGL） | 未実装（設計合意済み） |
+| `common/charts/box.py` | 第1層 | 箱ひげ図（EDAでの分布・外れ値確認） | 未実装（設計合意済み） |
+| `common/charts/histogram.py` | 第1層 | ヒストグラム（EDAでの分布形状確認、`color`で重ね描き） | 未実装（設計合意済み） |
+| `common/charts/pie.py` | 第1層 | 円グラフ（構成比） | 未実装（設計合意済み） |
+| `common/charts/pareto.py` | 第2層 | パレート図（降順ソート・累積構成比・80%目安線。描画は`barline.py`に委譲） | 未実装（設計合意済み） |
+| `common/charts/twograph.py` | 第2層 | x軸を共有する2段組（Plotlyの`shared_xaxes`でズーム・パンを連動、下段・上段は第1層の各モジュールに委譲） | 未実装（設計合意済み） |
 
 ### `common/report.py`のドリルダウン設計方針
 
@@ -150,7 +175,9 @@ erDiagram
 - クリック条件を固定2キーの辞書ではなく、**フィルタ条件のリスト**として
   持たせる（例: `[{"column": "pref", "match": "x"}, {"column": "segment", "match": "trace_name"}]`）。
 - 段数はこのリストの長さで決まり、最終段は必ず明細表、それ以外の段は
-  グラフとする。
+  グラフとする。各段は常に1つの`go.Figure`（第2層が複数の第1層部品を
+  subplotとしてまとめたものも含む）とし、`report.py`が複数Figureを1段に
+  束ねる特別対応は持たない。
 - 2段目以降の集計（グラフ描画用のgroup by/count）は、埋め込み済みの明細
   データに対してブラウザ側JSで行う（Pythonでの再集計はクリック時には
   発生しないため）。単純な件数集計に限定し、JS側の複雑化を避ける。
