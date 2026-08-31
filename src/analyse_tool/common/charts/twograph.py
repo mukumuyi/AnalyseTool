@@ -86,7 +86,10 @@ def gantt_and_wip_chart(
         col=1,
     )
 
-    fig.update_layout(title=title, barmode="stack")
+    # barmode="stack"は指定しない: ガント側は1トレース内で複数の区間が
+    # 同じ行(y)を共有する構造のため、"stack"にするとPlotlyがそれらを
+    # 累積的に積み上げてしまい、`base`で指定した絶対位置が壊れる。
+    fig.update_layout(title=title)
     fig.update_yaxes(title_text=gantt_y_title, type="category", row=1, col=1)
     fig.update_yaxes(title_text=wip_y_title, row=2, col=1)
     return fig

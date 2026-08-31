@@ -36,60 +36,76 @@
 
 ### `common/report.py`の拡張
 
-- [ ] 10. 段構成の設定を受け取り、選択式（段1→2）・構築式（段2→3・
+- [x] 10. 段構成の設定を受け取り、選択式（段1→2）・構築式（段2→3・
        3→4）の2メカニズムを組み立てる新関数を実装する（既存の1段版
        `build_bar_click_detail_html()`は変更しない）
-- [ ] 11. div id命名規則（`stage1-pareto`/`stage2-{eqp_id}`/
-       `stage3-gantt`・`stage3-wip`/`stage4-detail`）に沿ったHTML/CSS
-       骨格と、表示切り替えの共通JSを実装する
-- [ ] 12. `LotDetail`をcolumnar JSON形式で埋め込むヘルパーを実装する
+- [x] 11. div id命名規則に沿ったHTML/CSS骨格と、表示切り替えの共通JSを
+       実装する（`stage3-gantt`・`stage3-wip`を2つの独立したdivに分ける
+       案は、design.mdが確定させた「twograph.pyのsubplot構成は1段1Figure」
+       という技術決定と矛盾するため、実装時に`stage3-chart`という単一の
+       div（1つの`go.Figure`、上下2段のsubplot）に統一した）
+- [x] 12. `LotDetail`をcolumnar JSON形式で埋め込むヘルパーを実装する
        （records形式ではなく列ごとの配列）
 
 ### ツール本体（`trial_factory/eqp_workload_analysis/`）
 
-- [ ] 13. `cli.py`を実装する（`--input`/`--output`/`--profile-output`等。
-       `customer_pref_summary`のCLI引数構成を踏襲）
-- [ ] 14. `io.py`を実装する（Parquet読み込み、プロファイルJSON書き出し、
-       レポートHTML書き出し）
-- [ ] 15. `prepare.py`を実装する（`profile_from_parquet()`で傾向を把握。
+- [x] 13. `cli.py`を実装する（`--input`/`--output-dir`/`--top-n`/
+       `--period-days`/`--gantt-window-hours`）
+- [x] 14. `io.py`を実装する（Parquet読み込み、プロファイルJSON書き出し、
+       レポートHTML書き出し＋`output/index.html`への登録）
+- [x] 15. `prepare.py`を実装する（`profile_from_parquet()`で傾向を把握。
        レポートには使わず`write_profile()`でJSON書き出しのみ）
-- [ ] 16. `process.py`を実装する（`clean_proc_history()`、
+- [x] 16. `process.py`を実装する（`clean_proc_history()`、
        `annotate_lot_sequence()`：`wait_minutes`/`next_eqp_id`/
        `prev_eqp_id`を1回のSELECT文で付与）
-- [ ] 17. `process.py`のユニットテストを書く（`annotate_lot_sequence()`の
+- [x] 17. `process.py`のユニットテストを書く（`annotate_lot_sequence()`の
        境界ケース：ロット最初の工程で`prev_eqp_id`が`NULL`、最後の工程で
        `next_eqp_id`が`NULL`になることを確認）
-- [ ] 18. `analyze.py`を実装する（`aggregate_eqp_workload()`・
+- [x] 18. `analyze.py`を実装する（`aggregate_eqp_workload()`・
        `build_pareto()`・`build_hourly_utilization()`・
        `build_lot_records()`。時間帯集計は`generate_series`＋区間交差の
        SQL集合演算で行い、Pythonでロットごとにループしない）
-- [ ] 19. `analyze.py`のユニットテストを書く（集計結果の件数・列、
+- [x] 19. `analyze.py`のユニットテストを書く（集計結果の件数・列、
        パレートの累積構成比が100%に収束すること等）
-- [ ] 20. `visualize.py`を実装する（①〜⑥-2の`go.Figure`を組み立て、
+- [x] 20. `visualize.py`を実装する（①〜⑥-2の`go.Figure`を組み立て、
        `common/report.py`へ渡す。セクションごとに`_build_section*()`の
        小さい関数に分割し、集計・描画ロジックを持ち込まない）
-- [ ] 21. ⑥-3・⑥-4のドメイン固有JS（並行処理枠への詰め直し＝貪欲法、
+- [x] 21. ⑥-3・⑥-4のドメイン固有JS（並行処理枠への詰め直し＝貪欲法、
        仕掛数量の3分類集計、ガントのロット区間クリック→明細表更新）を
-       `visualize.py`側でJS文字列として組み立て、`report.py`へ渡す
-- [ ] 22. `scripts/trial_factory/eqp_workload_analysis.py`を実装する
+       `visualize.py`側でJS文字列として組み立て、`report.py`へ渡す。
+       段3の初期表示も含め、段3のすべての表示をこのJSの1経路に統一し
+       （Python側では空のプレースホルダFigureのみ用意）、貪欲法・3分類
+       判定のロジックをPython/JSの2箇所に重複実装しない設計にした
+- [x] 22. `scripts/trial_factory/eqp_workload_analysis.py`を実装する
        （`main()`を呼ぶだけの薄いラッパー）
 
 ### 動作確認
 
-- [ ] 23. `uv run python scripts/trial_factory/eqp_workload_analysis.py
-       --input data/trial_factory/proc_history.parquet --output
-       output/...`を実行し、正常終了することを確認する
-- [ ] 24. 生成したレポートHTMLを`file://`で開き、次を目視確認する:
+- [x] 23. `uv run python scripts/trial_factory/eqp_workload_analysis.py
+       --input data/trial_factory/proc_history.parquet --output-dir
+       output`を実行し、正常終了することを確認した
+       （4,211,253行→レポート約500KB、数秒で完了）
+- [x] 24. 生成したレポートHTMLを、ヘッドレスブラウザ（Playwright+
+       Chromium）で実際にクリックを発火させて動作確認した
+       （`file://`はplotly.jsをCDNから読み込む構成のため、サンドボックス
+       内の検証ではplotly.js本体をローカルファイルに差し替えたコピーで
+       確認し、実ファイル自体はCDN読み込みのまま変更していない）:
        - ①〜⑤の棒グラフ・散布図が表示される
        - ⑥パレート図クリック→装置稼働グラフ表示（段1→2）
        - 装置稼働グラフの1時間棒クリック→ガント＋仕掛数量推移表示
-         （段2→3）。ガント・仕掛推移がズーム・パン連動する
-       - ガントの着工中区間クリック→ロット明細表表示（段3→4）
-       - 実データでの並行処理枠の行数（想定：平均9・最大16）と、
-         「サンプルデータは設備の同時使用制約を持たない」旨の注記表示
-- [ ] 25. `prepare.py`が出力するプロファイルJSONを見て、仕掛数量推移の
-       3分類（着工中／待機中(自装置)／待機中(他装置)）が極端に偏った
-       分布になっていないか確認する（design.md 残課題）
+         （段2→3）。`shared_xaxes`でズーム・パン連動する軸構成を確認
+       - ガントの着工中区間クリック→ロット明細表表示（段3→4）。
+         待機区間（`lot_id`なし）をクリックしても何も起きないことも確認
+       - この検証を通じて実装上のバグを3件発見・修正した（詳細は下記
+         「進捗状況」）。並行処理枠の行数は、上位15台（待機時間合計基準）
+         ×代表期間3日間×任意の4時間窓をスイープした実測で最大3行
+         だった（設計時に見積もった「平均9・最大16」は全設備・全期間を
+         対象にした無絞り込みのスイープライン集計によるもので、母集団が
+         異なるため直接比較はできない。可変行数・スクロール前提の実装
+         自体は妥当で、実測3行はその範囲内に収まっている）
+- [x] 25. 生成したレポートで仕掛数量推移の3分類を確認した。1つの
+       ガント窓の実例で着工中/待機中(自装置)/待機中(他装置)の3分類が
+       いずれも0でない値を持つことを確認した（極端な偏りは無い）
 
 ### 説明資料・永続ドキュメント
 
@@ -108,9 +124,12 @@
 
 ### 品質チェック・最終確認
 
-- [ ] 31. `uv run ruff check .` / `uv run ruff format .`を実行する
-- [ ] 32. `uv run mypy .`を実行する
-- [ ] 33. `uv run pytest`を実行する
+- [x] 31. `uv run ruff check .` / `uv run ruff format .`を実行する
+      （`pyproject.toml`に`[tool.ruff.lint] ignore = ["DTZ"]`を追加。
+      本ツールはローカル単一ユーザー実行前提で、`output/`のファイル名・
+      目次に使う実行日時はUTCではなくローカル時刻であるべきため）
+- [x] 32. `uv run mypy .`を実行する
+- [x] 33. `uv run pytest`を実行する（52件、全て成功）
 - [ ] 34. `requirements.md`の受け入れ条件を満たしているか最終確認する
        （4ステップ構成・DuckDB集計・`file://`自己完結HTML・4段階
        ドリルダウン・並行処理枠の視覚的区別・仕掛数量推移の3分類・
@@ -139,3 +158,39 @@
 でも`gantt.add_gantt_traces()`が常に`fig.data[0]`（`curveNumber == 0`）に
 なることを確認した（残課題としていた動作確認を、実ブラウザではなく
 ユニットテストで自動化）。
+
+タスク10〜25完了。`common/report.py`拡張・ツール本体・動作確認まで一括で
+実装し、実データ（`data/trial_factory/proc_history.parquet`、
+4,211,253行）に対して実行・ヘッドレスブラウザでの動作確認まで行った。
+
+動作確認（タスク24）の過程で、実装上のバグを3件発見し修正した
+（いずれもユニットテストの回帰テストを追加済み）:
+
+1. `analyze.py`の`build_hourly_utilization()`で、着工件数(`start_count`)
+   の集計が`date_trunc('hour', start_time)`で時間帯を求めていたが、
+   代表期間の開始時刻（実データの`MIN(start_time)`）は0分0秒起点で
+   ないため、時間帯の境界と噛み合わず常に0件になっていた。`hours`と
+   同じ半開区間の条件で結合するよう修正した。
+2. 同じく`build_hourly_utilization()`で、稼働分数(`busy_minutes`)の
+   算出に使っていた`LEFT JOIN`が、DuckDBの`GREATEST`/`LEAST`が
+   `NULL`引数を無視する仕様と組み合わさり、「重なる行が無い時間帯」を
+   満稼働（60分）と誤集計していた。`INNER JOIN`に変更し、該当行が
+   無い時間帯は素直に0分として扱うようにした。
+3. ガントチャートの区間が実際の時刻位置に描かれず、常に`x=0`起点で
+   結合されて表示される不具合があった。原因は2つ: (a) `go.Bar`の
+   `base`（区間の開始時刻）にJavaScriptの`Date`オブジェクトをそのまま
+   渡すとPlotly.jsが正しく解釈しない（ISO文字列に変換する必要がある）、
+   (b) `base`が日時でも`x`（所要時間）が数値のため、x軸の型が自動判定で
+   日時軸と認識されない（明示的に`type: "date"`を指定する必要がある）。
+   この(b)は`common/charts/gantt.py`（Python側）にも同じ潜在バグが
+   あったため、`add_gantt_traces()`内で明示的に`fig.update_xaxes(
+   type="date")`するよう修正した（両方に回帰テストを追加）。
+   あわせて、`twograph.py`の`gantt_and_wip_chart()`に残っていた
+   `barmode="stack"`も、ガント側の複数区間（同じ行を共有する複数の
+   `base`位置）を誤って累積的に積み上げてしまう副作用があったため削除した。
+
+また、代表期間には稼働がほぼ無い時間帯も多いこと（実測: 着工中の
+分数が0の時間帯が72%）が分かったため、段3の初期表示（ページを開いた
+直後にドメインJSが自動描画する既定の設備・時間帯）は、単純に代表期間の
+先頭ではなく、最も稼働している時間帯を選ぶよう`visualize.py`の
+`_default_hour()`で調整した。

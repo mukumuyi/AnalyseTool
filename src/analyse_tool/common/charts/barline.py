@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -22,7 +24,7 @@ def bar_with_line(
     y_bar: str,
     y_line: str,
     color: str | None = None,
-    x_order: list[str] | None = None,
+    x_order: list[Any] | None = None,
     title: str | None = None,
     x_title: str | None = None,
     y_bar_title: str | None = None,
@@ -87,6 +89,7 @@ def bar_with_line(
             "overlaying": "y",
             "side": "right",
         },
+        legend={"orientation": "h", "y": -0.2},
         legend_title=color,
     )
     return fig

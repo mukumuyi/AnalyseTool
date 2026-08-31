@@ -61,3 +61,20 @@ def test_xaxes_are_shared_between_the_two_rows():
     fig = _build_fig()
 
     assert fig.layout.xaxis.matches == "x2"
+
+
+def test_gantt_row_x_axis_is_forced_to_date_type():
+    # 回帰テスト: ガント側のxは所要時間（数値）のため、軸型の自動判定に
+    # 任せると日時軸と認識されず、baseで指定した開始時刻が反映されない。
+    fig = _build_fig()
+
+    assert fig.layout.xaxis.type == "date"
+
+
+def test_layout_does_not_force_bar_stacking():
+    # 回帰テスト: barmode="stack"だと、同じ行(y)を複数区間が共有する
+    # ガントの1トレース内で、Plotlyが`base`の絶対位置を無視して区間を
+    # 累積的に積み上げてしまい、実際の時刻とずれた表示になる。
+    fig = _build_fig()
+
+    assert fig.layout.barmode != "stack"

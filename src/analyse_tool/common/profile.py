@@ -114,6 +114,18 @@ def load_profile(path: str | Path) -> DatasetProfile:
     return DatasetProfile.from_dict(data)
 
 
+def _fetchone(result: Any) -> tuple[Any, ...]:
+    """`fetchone()`の結果を返す。`SELECT`に対する集計クエリは必ず1行返る
+    前提のため、`None`（該当行なし）はここで異常として扱う
+    （`fetchone()`の型が`tuple | None`である、という型チェッカー向けの
+    ガードを兼ねる）。
+    """
+    row = result.fetchone()
+    if row is None:
+        raise RuntimeError("集計クエリの結果が空でした")
+    return row
+
+
 def profile_from_parquet(
     path: str | Path,
     name: str | None = None,
@@ -131,7 +143,7 @@ def profile_from_parquet(
     name = name or path.stem
     con = duckdb.connect()
     rel = f"read_parquet('{path.as_posix()}')"
-    row_count: int = con.sql(f"SELECT COUNT(*) FROM {rel}").fetchone()[0]
+    row_count: int = _fetchone(con.sql(f"SELECT COUNT(*) FROM {rel}"))[0]
 
     schema_rows = con.sql(f"DESCRIBE SELECT * FROM {rel}").fetchall()
 
@@ -139,15 +151,19 @@ def profile_from_parquet(
     for col_name, col_type, *_ in schema_rows:
         quoted = f'"{col_name}"'
         null_rate = (
-            con.sql(
-                f"SELECT AVG(CASE WHEN {quoted} IS NULL THEN 1.0 ELSE 0.0 END) FROM {rel}"
-            ).fetchone()[0]
+            _fetchone(
+                con.sql(
+                    f"SELECT AVG(CASE WHEN {quoted} IS NULL THEN 1.0 ELSE 0.0 END) FROM {rel}"
+                )
+            )[0]
             or 0.0
         )
         upper_type = col_type.upper()
 
         if "DATE" in upper_type or "TIMESTAMP" in upper_type:
-            lo, hi = con.sql(f"SELECT MIN({quoted}), MAX({quoted}) FROM {rel}").fetchone()
+            lo, hi = _fetchone(
+                con.sql(f"SELECT MIN({quoted}), MAX({quoted}) FROM {rel}")
+            )
             columns.append(
                 ColumnProfile(
                     name=col_name,
@@ -162,9 +178,11 @@ def profile_from_parquet(
 
         if upper_type == "BOOLEAN":
             true_rate = (
-                con.sql(
-                    f"SELECT AVG(CASE WHEN {quoted} THEN 1.0 ELSE 0.0 END) FROM {rel}"
-                ).fetchone()[0]
+                _fetchone(
+                    con.sql(
+                        f"SELECT AVG(CASE WHEN {quoted} THEN 1.0 ELSE 0.0 END) FROM {rel}"
+                    )
+                )[0]
                 or 0.0
             )
             columns.append(
@@ -178,9 +196,9 @@ def profile_from_parquet(
             )
             continue
 
-        distinct_count: int = con.sql(
-            f"SELECT approx_count_distinct({quoted}) FROM {rel}"
-        ).fetchone()[0]
+        distinct_count: int = _fetchone(
+            con.sql(f"SELECT approx_count_distinct({quoted}) FROM {rel}")
+        )[0]
         is_numeric_type = any(
             t in upper_type for t in ("INT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT")
         )
@@ -188,15 +206,24 @@ def profile_from_parquet(
         if is_numeric_type and distinct_count > max_categories:
             # distinct_count は approx_count_distinct（HyperLogLog）による概算値で、
             # 数%程度の誤差が出るため、閾値は 0.99 ではなく余裕を持って 0.9 にする。
-            looks_like_id = col_name.lower().endswith("id") and distinct_count >= row_count * 0.9
+            looks_like_id = (
+                col_name.lower().endswith("id") and distinct_count >= row_count * 0.9
+            )
             if looks_like_id:
                 columns.append(
-                    ColumnProfile(name=col_name, dtype=col_type.lower(), role="id", null_rate=null_rate)
+                    ColumnProfile(
+                        name=col_name,
+                        dtype=col_type.lower(),
+                        role="id",
+                        null_rate=null_rate,
+                    )
                 )
                 continue
-            lo, hi, mean, stddev = con.sql(
-                f"SELECT MIN({quoted}), MAX({quoted}), AVG({quoted}), STDDEV_SAMP({quoted}) FROM {rel}"
-            ).fetchone()
+            lo, hi, mean, stddev = _fetchone(
+                con.sql(
+                    f"SELECT MIN({quoted}), MAX({quoted}), AVG({quoted}), STDDEV_SAMP({quoted}) FROM {rel}"
+                )
+            )
             columns.append(
                 ColumnProfile(
                     name=col_name,

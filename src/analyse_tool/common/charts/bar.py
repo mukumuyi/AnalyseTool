@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -17,7 +19,7 @@ def stacked_bar(
     x: str,
     y: str,
     color: str | None = None,
-    x_order: list[str] | None = None,
+    x_order: list[Any] | None = None,
     title: str | None = None,
     x_title: str | None = None,
     y_title: str | None = None,

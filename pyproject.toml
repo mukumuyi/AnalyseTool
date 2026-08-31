@@ -31,3 +31,10 @@ dev = [
 # ようにimportエラーだけを無視する（コード自体の型ヒントは維持する）。
 module = ["plotly.*", "duckdb.*"]
 ignore_missing_imports = true
+
+[tool.ruff.lint]
+# DTZ（flake8-datetimez、タイムゾーン未指定のdatetime使用を禁止するルール）は
+# 対象外にする。`docs/architecture.md`の前提通りローカルPCでの単一ユーザー
+# 実行のみを想定しており、`output/`配下のファイル名・目次に使う実行日時は
+# UTCではなくローカルの壁時計時刻であることが望ましいため。
+ignore = ["DTZ"]

@@ -92,6 +92,11 @@ def add_gantt_traces(
         ),
         **add_kwargs,
     )
+    # `base`（区間の開始時刻）は日時型だが、`x`（所要時間）はただの数値のため、
+    # 軸の型をPlotly側の自動判定に任せると日時軸と認識されず、`base`が
+    # 位置として解釈されずに全区間がx=0起点で描かれてしまう。明示的に
+    # 日時軸を指定する（ブラウザでの動作確認で判明した不具合の対策）。
+    fig.update_xaxes(type="date", **add_kwargs)
     return fig
 
 
