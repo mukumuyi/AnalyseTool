@@ -24,13 +24,13 @@
 
 ### 第2層（分析の型）
 
-- [ ] 7. `common/charts/pareto.py`を新規実装する（降順ソート・累積構成比・
+- [x] 7. `common/charts/pareto.py`を新規実装する（降順ソート・累積構成比・
       80%目安線の算出は純粋関数として切り出し、描画は`barline.py`に
       委譲）
-- [ ] 8. `common/charts/twograph.py`を新規実装する（`make_subplots(rows=2,
+- [x] 8. `common/charts/twograph.py`を新規実装する（`make_subplots(rows=2,
       cols=1, shared_xaxes=True)`でFigureを作り、`gantt.py`/`area.py`の
       `add_*_traces()`を呼ぶ。単体利用向けの薄いラッパーも用意）
-- [ ] 9. `twograph.py`のtrace追加順（ガント→仕掛推移）を固定し、
+- [x] 9. `twograph.py`のtrace追加順（ガント→仕掛推移）を固定し、
       `curveNumber`でガント側だけを判定できることを、小さいダミー
       データで動作確認する（design.md 6-4節・残課題）
 
@@ -134,3 +134,8 @@
 `pyproject.toml`の`[[tool.mypy.overrides]]`でimportエラーのみ無視するよう
 設定した（本ツールで初めて`mypy`が`src/`配下の実コードを型チェックする
 ため、リポジトリ共通の設定として一度だけ必要になったもの）。
+
+第2層（タスク7〜9）完了。`twograph.py`のユニットテストで、ダミーデータ
+でも`gantt.add_gantt_traces()`が常に`fig.data[0]`（`curveNumber == 0`）に
+なることを確認した（残課題としていた動作確認を、実ブラウザではなく
+ユニットテストで自動化）。
