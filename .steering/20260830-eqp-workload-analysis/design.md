@@ -23,14 +23,19 @@ https://claude.ai/code/artifact/82556c36-ee84-4dba-aa07-ed6cb68b7208
 
 ## 2. 変更するコンポーネント
 
-| ファイル | 状態 | 役割 |
-| --- | --- | --- |
-| `src/analyse_tool/common/charts/bar.py` | 既存流用 | ②③積み上げ棒グラフ（`stacked_bar()`をそのまま利用） |
-| `src/analyse_tool/common/charts/pareto.py` | 新規 | ⑥-1 パレート図（棒＋累積構成比の二軸） |
-| `src/analyse_tool/common/charts/timeline.py` | 新規 | ⑥-2 装置稼働グラフ（1時間刻み積み上げ＋着工件数折れ線） |
-| `src/analyse_tool/common/charts/gantt.py` | 新規 | ⑥-3 ガントチャート（並行処理枠×ロット区間）＋仕掛数量推移（3分類積み上げ面グラフ） |
-| `src/analyse_tool/common/report.py` | 拡張 | 1段階（棒→明細表）から、パレート図→装置稼働グラフ→ガント+仕掛推移→明細表の4段階に一般化。既存の1段版APIは維持し後方互換を壊さない |
-| `src/analyse_tool/trial_factory/eqp_workload_analysis/{cli,io,prepare,process,analyze,visualize}.py` | 新規 | 本ツール本体 |
+グラフ部品は3節の層構造に従って配置する。
+
+| ファイル | 層 | 状態 | 役割 |
+| --- | --- | --- | --- |
+| `src/analyse_tool/common/charts/bar.py` | 第1層 | 既存＋微修正 | 積み上げ棒（`stacked_bar()`）。①②③で単色棒としても使うため`color`省略時の単色モードを追加 |
+| `src/analyse_tool/common/charts/barline.py` | 第1層 | 新規 | 棒（1〜n系列・stack可）＋第2軸の折れ線。⑥-1と⑥-2で共用する |
+| `src/analyse_tool/common/charts/area.py` | 第1層 | 新規 | 積み上げ面（階段状も可）。⑥-3の仕掛数量推移で使用 |
+| `src/analyse_tool/common/charts/gantt.py` | 第1層 | 新規 | 区間の水平棒。並行処理枠を複数行として持てる |
+| `src/analyse_tool/common/charts/scatter.py` | 第1層 | 新規 | 散布図（`scattergl`固定）。④⑤で使用 |
+| `src/analyse_tool/common/charts/pareto.py` | 第2層 | 新規 | 降順ソート・累積構成比・80%目安線というパレート図の作法。描画は`barline.py`に委譲 |
+| `src/analyse_tool/common/charts/twograph.py` | 第2層 | 新規 | x軸を共有し、ズーム・パン・ホバーが連動する2段組。⑥-3で`gantt.py`と`area.py`を組み合わせる |
+| `src/analyse_tool/common/report.py` | 機構 | 拡張 | 1段階（棒→明細表）から、パレート図→装置稼働グラフ→ガント+仕掛推移→明細表の4段階に一般化。既存の1段版APIは維持し後方互換を壊さない |
+| `src/analyse_tool/trial_factory/eqp_workload_analysis/{cli,io,prepare,process,analyze,visualize}.py` | 案件固有 | 新規 | 本ツール本体。`visualize.py`がレポート全体の調整・グラフ配置・部品へのパラメータ受け渡しを担う |
 | `scripts/trial_factory/eqp_workload_analysis.py` | 新規 | エントリポイント |
 | `docs/trial_factory/eqp_workload_analysis.md` | 新規 | 説明資料 |
 | `docs/functional-design.md` | 更新（実装後） | コンポーネント表の状態更新、ドリルダウン方針を4段階に拡張したことを反映 |
@@ -39,46 +44,88 @@ https://claude.ai/code/artifact/82556c36-ee84-4dba-aa07-ed6cb68b7208
 
 ## 3. モジュール依存関係（グラフ関連）
 
-依頼のあった「各グラフモジュールの依存関係」をまとめる。矢印は「利用する
+レビューでの議論を経て、フラット構成ではなく**層構造**を採用する（採用理由
+は本ファイル末尾の「レビュー議論の記録」を参照）。矢印は「利用する
 （import する）」方向。
 
 ```mermaid
 flowchart TD
-    subgraph common["src/analyse_tool/common/"]
-        bar["charts/bar.py<br/>(積み上げ棒)"]
-        pareto["charts/pareto.py<br/>(パレート図)"]
-        timeline["charts/timeline.py<br/>(装置稼働グラフ)"]
-        gantt["charts/gantt.py<br/>(ガント＋仕掛推移)"]
-        report["report.py<br/>(N段ドリルダウンHTML組み立て)"]
-    end
-    subgraph tool["trial_factory/eqp_workload_analysis/"]
-        visualize["visualize.py"]
+    subgraph L3["案件固有: trial_factory/eqp_workload_analysis/"]
+        vis["visualize.py<br/>レポート全体の調整・グラフ配置・<br/>部品へのパラメータ受け渡し"]
     end
 
-    visualize --> bar
-    visualize --> pareto
-    visualize --> timeline
-    visualize --> gantt
-    visualize --> report
-    report -.->|"HTML化されたFigureを受け取るのみ<br/>（chart系モジュールをimportしない）"| pareto
-    report -.-> timeline
-    report -.-> gantt
+    subgraph L2["第2層＝分析の型: common/charts/"]
+        pareto["pareto.py<br/>(降順ソート・累積構成比・80%線)"]
+        twograph["twograph.py<br/>(x軸共有の2段組)"]
+    end
+
+    subgraph L1["第1層＝見た目の型: common/charts/"]
+        barline["barline.py<br/>(棒 + 第2軸の折れ線)"]
+        bar["bar.py<br/>(積み上げ棒・既存＋単色モード追加)"]
+        area["area.py<br/>(積み上げ面・階段状可)"]
+        gantt["gantt.py<br/>(区間の水平棒)"]
+        scatter["scatter.py<br/>(散布図・scattergl固定)"]
+    end
+
+    subgraph SH["ドリルダウン機構: common/"]
+        report["report.py<br/>(N段クリック連動の組み立て)"]
+    end
+
+    vis -->|"⑥-1 パレート図"| pareto
+    vis -->|"⑥-2 装置稼働グラフ"| barline
+    vis -->|"⑥-3 ガント＋仕掛推移"| twograph
+    vis -->|"①〜③ 棒"| bar
+    vis -->|"④⑤ 散布図"| scatter
+    vis -->|"段構成の設定を渡す"| report
+
+    pareto --> barline
+    twograph --> gantt
+    twograph --> area
 ```
 
-- `common/charts/*.py`同士に依存関係は無い（それぞれ独立に
-  `pandas.DataFrame`等を受け取り`go.Figure`を返すだけの純関数群）。
+- **層をまたぐ一方向依存のみ許可し、同一層内の依存は禁止する。**
+  第2層（`pareto.py`/`twograph.py`）は「分析の型」＝集計済みデータの並べ方
+  ・強調の仕方を決め、実際の描画は第1層（`barline.py`/`bar.py`/`area.py`/
+  `gantt.py`/`scatter.py`）に委譲する。第1層同士・第2層同士に依存関係は
+  無い（それぞれ独立に`DataFrame`等を受け取り`go.Figure`を返す、または
+  既存`fig`にtraceを追加する純関数群）。
   `docs/architecture.md`の「共通処理は各ツールのサブパッケージに依存しない
   一方向の関係を保つ」を踏襲し、`common/`配下からツール固有コード
   （`trial_factory/*`）への依存は作らない。
-- `common/report.py`は各chartモジュールが返した`go.Figure`（`.to_html()`
-  可能なもの）を受け取って埋め込むだけで、`pareto.py`等を直接importして
-  再生成することはしない（責務の分離。グラフの見た目を変えたい場合は
-  chartモジュール側だけを直せばよい）。
-- `visualize.py`が上記4モジュールを組み合わせる唯一の場所になる
-  （既存`customer_pref_summary/visualize.py`と同じ位置づけ）。
-- `gantt.py`は1モジュール内に「ガントチャート生成関数」と「仕掛数量推移
-  生成関数」の2つを持つ（両方とも同じ時間軸データを扱うため近い場所に置く
-  が、関数としては独立させ、どちらか一方だけの利用も妨げない）。
+- **`common/report.py`はどのchartモジュールも import しない。**
+  `visualize.py`が組み立てた`go.Figure`（各段1つ、`twograph.py`が返す
+  subplot構成のFigureも「1段1Figure」として扱える）を受け取って埋め込む
+  だけの機構に徹する。グラフの見た目を変えたいときはchartモジュール側
+  だけを直せばよい。
+- **`twograph.py`のx軸連動は、Plotlyの`make_subplots(shared_xaxes=True)`
+  で実現する**（カスタムJSは書かない）。`twograph.py`が
+  `make_subplots(rows=2, cols=1, shared_xaxes=True)`でFigureを作り、
+  `gantt.py`/`area.py`に「既存Figureにtraceを追加する関数」
+  （例: `add_gantt_traces(fig, row, col, ...)`）を呼んでもらう形にする。
+  これによりブラウザ側でズーム・パン・ホバーが2段の間で自動的に連動する
+  （Plotly標準機能。追加のJS実装が不要）。単体（1段だけ）で使いたい場合の
+  薄いラッパーも用意する。
+
+### `visualize.py`が案件ごとに肥大化しないための方針（レビューでの懸念事項）
+
+複数プロジェクトが増えても各`visualize.py`が肥大化し続けないよう、次の
+方針を`docs/development-guidelines.md`相当のローカルルールとして
+`eqp_workload_analysis`実装時から適用する。
+
+- `visualize.py`は**「どのグラフをどの段に、どんなパラメータで置くか」を
+  決めるだけ**にし、実際の集計・描画ロジックは持たない（集計は
+  `analyze.py`、描画は`common/charts/*`が担う）。
+- セクション（①〜⑥）ごとに`_build_section1_count_chart()`のような小さい
+  プライベート関数に分割し、1関数1セクションに留める。`main()`相当の
+  `build_report()`はそれらを順番に呼ぶだけの一覧性の高い関数にする。
+- **2つ以上のツールで同じ組み立てパターンが必要になって初めて**
+  `common/`側への切り出しを検討する（`docs/repository-structure.md`の
+  「`common/`配下に置くのは複数ツールで共有する処理のみ」を踏襲）。
+  1ツールしか使わない段階で先回りして共通化しない。
+- 本当に大きくなった場合は、`common/`に切り出すのではなく
+  `trial_factory/eqp_workload_analysis/`パッケージ内で
+  `visualize_sections.py`のように分割してもよい（あくまでツール内の分割。
+  `common/`へは上記の「2ツール以上」の条件を満たしてから）。
 
 ## 4. データ加工処理の依存関係（`prepare`→`process`→`analyze`→`visualize`）
 
@@ -102,8 +149,8 @@ flowchart TD
     TopN --> LotDetail["③ analyze.py: build_lot_records()<br/>上位N台に関係するロットの明細<br/>(lot_id, eqp_id, ope_no, ope_seq,<br/>start_time, end_time, next_eqp_id, prev_eqp_id)<br/>→ ⑥-3 ガント/仕掛推移 と ⑥-4 明細表 の共通ソース"]
     NextEqp --> LotDetail
 
-    LotDetail --> Gantt["④ visualize.py（ブラウザ側JS）<br/>選択eqp×時間帯のlot_recordsから<br/>並行処理枠（行）に詰め直す<br/>→ ⑥-3 ガントチャート"]
-    LotDetail --> Wip["④ visualize.py（ブラウザ側JS）<br/>同じlot_recordsから<br/>着工中/待機(自装置)/待機(他装置)を集計<br/>→ ⑥-3 仕掛数量推移"]
+    LotDetail --> Gantt["④ visualize.py（ブラウザ側JS）<br/>選択eqp×時間帯のlot_recordsから<br/>並行処理枠（行）に詰め直す<br/>→ ⑥-3 twograph.py 上段（gantt.py）"]
+    LotDetail --> Wip["④ visualize.py（ブラウザ側JS）<br/>同じlot_recordsから<br/>着工中/待機(自装置)/待機(他装置)を集計<br/>→ ⑥-3 twograph.py 下段（area.py）"]
     LotDetail --> Detail["④ visualize.py（ブラウザ側JS）<br/>クリックしたlot_idで1行に絞り込み<br/>→ ⑥-4 ロット明細表"]
 
     AggBar --> Report["④ visualize.py → common/report.py<br/>①〜⑥を1枚のHTMLに組み立て"]
@@ -166,9 +213,10 @@ flowchart TD
 - 新関数（案）: `build_multi_stage_drilldown_html()`
   - 引数: 各段のFigure（`figs: list[go.Figure]`）、最終段の明細
     DataFrame、段間の対応付け設定（各段のクリックで何が決まるか）。
-  - 今回のツール固有の事情（⑥-3が「グラフ2枚（ガント＋仕掛推移）が
-    同時に1段として現れる」）に対応するため、1段に複数Figureを許容する
-    （`stage_figs: list[list[go.Figure]]`のようなイメージ）。
+  - ⑥-3（ガント＋仕掛推移）は`twograph.py`が1つの`go.Figure`（subplot
+    構成）として返すため、**「1段＝1Figure」のままで済む**
+    （3節の設計により、report.py側で複数Figureを1段にまとめる特別対応は
+    不要になった）。
   - 段2→段3、段3→段4の絞り込みロジック（時間帯選択、ロット選択）は
     ツール固有の解釈が要るため、絞り込み用のJSスニペット自体は
     `visualize.py`側でパラメータ化して`report.py`に渡す
@@ -181,16 +229,16 @@ flowchart TD
 Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパラメータ確定
 事項。
 
-| グラフ | 種類 | 軸 | 初期表示 | 備考 |
-| --- | --- | --- | --- | --- |
-| ①設備ごとの処理数 | 棒 | x=eqp_id, y=処理数 | 処理数降順・上位15台 | `common/charts/bar.py`は色分け前提のため、単色棒はpareto.py内の単純棒で代用するか、bar.pyに`color`省略時の単色モードを追加するかをtasklist時に決定 |
-| ②③待機時間合計/平均 | 棒 | x=eqp_id, y=分 | 上位10台 | 同上 |
-| ④⑤散布図 | scattergl | x=処理数, y=待機時間 | 全上位15台点表示 | `common/charts/scatter.py`は未実装のため新規実装が必要（`docs/functional-design.md`に追記） |
-| ⑥-1パレート図 | 棒＋線（2軸） | x=eqp_id（待機時間合計降順）, y1=待機時間合計, y2=累積構成比(0-100%) | 上位15台、累積80%ラインの目安線を表示 | クリックでeqp_id選択 |
-| ⑥-2装置稼働グラフ | 積み上げ棒＋線（2軸） | x=時刻(1h), y1=着工中/待機の時間比率, y2=着工件数 | 選択eqpの24時間 | クリックで時間帯選択（5.のデータ量対策により選択可能な範囲を絞る場合あり） |
-| ⑥-3ガントチャート | 水平棒（`base`+`x`で区間表現） | y=並行処理枠（行）, x=時刻 | 選択eqp・選択時間帯を中心とした窓（既定4時間） | 着工中区間に`lot_id`をテキスト表示、待機はグレー |
-| ⑥-3仕掛数量推移 | 積み上げ面（`stackgroup`） | x=時刻（ガントと共通）, y=ロット数 | ガントと同じ窓 | 3分類（着工中／待機中(自)／待機中(他)） |
-| ⑥-4ロット明細表 | HTML表 | - | 選択ロット1件（同一lot_id内の全工程行も参考として表示するかはtasklist時に決定） | `common/report.py`の明細表描画を流用 |
+| グラフ | 部品（層） | 種類 | 軸 | 初期表示 | 備考 |
+| --- | --- | --- | --- | --- | --- |
+| ①設備ごとの処理数 | `bar.py`(第1層) | 単色棒 | x=eqp_id, y=処理数 | 処理数降順・上位15台 | `bar.py`に`color`省略時の単色モードを追加 |
+| ②③待機時間合計/平均 | `bar.py`(第1層) | 単色棒 | x=eqp_id, y=分 | 上位10台 | 同上 |
+| ④⑤散布図 | `scatter.py`(第1層) | scattergl | x=処理数, y=待機時間 | 全上位15台点表示 | 新規実装（`docs/functional-design.md`に追記） |
+| ⑥-1パレート図 | `pareto.py`(第2層)→`barline.py`(第1層) | 棒＋線（2軸） | x=eqp_id（待機時間合計降順）, y1=待機時間合計, y2=累積構成比(0-100%) | 上位15台、累積80%ラインの目安線を表示 | クリックでeqp_id選択 |
+| ⑥-2装置稼働グラフ | `barline.py`(第1層) | 積み上げ棒＋線（2軸） | x=時刻(1h), y1=着工中/待機の時間比率, y2=着工件数 | 選択eqpの24時間 | クリックで時間帯選択（5.のデータ量対策により選択可能な範囲を絞る場合あり） |
+| ⑥-3ガント（twograph上段） | `twograph.py`(第2層)→`gantt.py`(第1層) | 水平棒（`base`+`x`で区間表現） | y=並行処理枠（行）, x=時刻 | 選択eqp・選択時間帯を中心とした窓（既定4時間） | 着工中区間に`lot_id`をテキスト表示、待機はグレー |
+| ⑥-3仕掛数量推移（twograph下段） | `twograph.py`(第2層)→`area.py`(第1層) | 積み上げ面（階段状、`stackgroup`） | x=時刻（ガントと共有のx軸） | ガントと同じ窓 | 3分類（着工中／待機中(自)／待機中(他)）。`shared_xaxes=True`によりガントとズーム・パン連動 |
+| ⑥-4ロット明細表 | `common/report.py` | HTML表 | - | 選択ロット1件（同一lot_id内の全工程行も参考として表示するかはtasklist時に決定） | `common/report.py`の明細表描画を流用 |
 
 `common/charts/scatter.py`が未実装だった点は、要件定義時に見落としていた
 ため、ここで`docs/functional-design.md`のコンポーネント表に合わせて
@@ -199,11 +247,13 @@ Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパ
 ## 8. 影響範囲の分析（実装後に反映する永続的ドキュメント）
 
 - `docs/functional-design.md`
-  - コンポーネント表: `pareto.py`/`timeline.py`/`gantt.py`/`scatter.py`を
-    「実装済み」に更新
-  - 「ドリルダウンの二段拡張」節: 実際に4段階（うち1段2Figure構成）まで
-    一般化したことを追記し、`build_multi_stage_drilldown_html()`の設計を
-    反映
+  - コンポーネント表: `pareto.py`/`barline.py`/`area.py`/`gantt.py`/
+    `twograph.py`/`scatter.py`を「実装済み」に更新し、「見た目の型（第1層）
+    ／分析の型（第2層）」という層構造を追記する
+  - 「ドリルダウンの二段拡張」節: 実際に4段階まで一般化したことを追記し、
+    `build_multi_stage_drilldown_html()`の設計を反映（各段は
+    `twograph.py`のsubplot構成も含め「1段＝1Figure」で統一されたことも
+    明記）
   - 「ツールごとの実装」表に`eqp_workload_analysis`を追加
 - `docs/repository-structure.md`
   - 「現時点では具体的なプロジェクトが1つも本採用されていない」という
@@ -219,6 +269,28 @@ Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパ
 
 - ⑥-3の窓幅（既定4時間、モック準拠）・ドリルダウン対象期間（既定3日間）の
   既定値は、実データ（`prepare.py`の結果）を見てから微調整してよいか
-- `common/charts/bar.py`に単色モードを足すか、pareto.py内で単純な棒を
-  自前実装するか
 - ロット明細表は1ロット1行のみか、そのロットの全工程行を並べるか
+
+## 10. レビュー議論の記録（グラフモジュール構成: フラット案 vs 層構造案）
+
+design.md初版はグラフ部品をフラットに並べる構成（`pareto.py`/
+`timeline.py`/`gantt.py`が`common/charts/`に横並び）だったが、レビューで
+次の指摘を受け、層構造（本ファイルの3節）に変更した。
+
+- **指摘**: パレート図と装置稼働グラフはどちらも「棒＋第2軸の折れ線」で
+  同じ図形なのに、フラット案では別モジュールに実装が重複する。
+  「見た目の型（第1層: bar/barline/gantt/area/scatter）」と「分析の型
+  （第2層: pareto/twograph）」に分け、第2層が第1層に処理を委譲する構成に
+  すべきではないか。
+- **対応**: 3節の層構造を採用。`barline.py`（第1層）を新設し、
+  `pareto.py`・装置稼働グラフの両方がこれを使うことで重複を解消した。
+- **懸念1（本人確認済み・解決）**: 複数プロジェクトが増えるにつれ、
+  案件固有の組み立てモジュール（`visualize.py`）が肥大化しないか。
+  → 3節末尾の方針（1セクション1関数への分割、`common/`への切り出しは
+  「2ツール以上で同じパターンが必要になってから」）で対応する。
+- **懸念2（本人確認済み・解決）**: 仕掛数量推移は棒か面か。
+  → 面（階段状）に決定。モックの見た目に合わせる。
+- **懸念3（本人確認済み・解決）**: `twograph.py`の2グラフに、同じ横軸での
+  ズーム・パン等の連動性を持たせたい（実装方式は一任）。
+  → Plotlyの`make_subplots(shared_xaxes=True)`で実現する方針とした
+  （3節参照。カスタムJSは不要）。
