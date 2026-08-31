@@ -14,26 +14,39 @@
 
 ### 構成物一覧
 
+グラフの種類・見せ方は要求仕様（`requirements.md`・本ファイルの
+「画面レイアウト」）側の対象のため、ここには含めない。
+
 | 種別 | 名称 | 対応種別 | 内容 |
 | --- | --- | --- | --- |
-| 画面 | 設備稼働負荷・ロット待機分析レポート | 新 | proc_historyを対象に①〜⑥の6セクションを1枚のHTMLにまとめる（画面レイアウト参照） |
-| グラフ | ①〜⑤ 基本グラフ | 新 | 設備ごとの処理数・待機時間合計/平均の棒グラフ3種、処理数×待機時間の散布図2種 |
-| グラフ | パレート図（⑥-1） | 新 | 設備別の待機時間合計を降順＋累積構成比で表示 |
-| グラフ | 装置稼働グラフ（⑥-2） | 新 | 選択設備の1時間刻み稼働状況＋着工件数 |
-| グラフ | ガントチャート（⑥-3上段） | 新 | 選択設備・時間帯のロット単位区間（並行処理枠に対応） |
-| グラフ | 仕掛数量推移（⑥-3下段） | 新 | 着工中／待機中(自装置)／待機中(他装置)の3分類積み上げ面 |
-| コード | `common/charts/{bar,barline,area,gantt,scatter}.py` | 新 | 第1層（見た目の型）。`bar.py`のみ既存に単色モードを追加 |
-| コード | `common/charts/{pareto,twograph}.py` | 新 | 第2層（分析の型）。描画は第1層に委譲する |
-| コード | `common/report.py` | 変 | 1段階（棒→明細表）から、4段階の逐次クリック型ドリルダウンに拡張。既存の1段版APIは維持 |
-| コード | `trial_factory/eqp_workload_analysis/{cli,io,prepare,process,analyze,visualize}.py` | 新 | ツール本体 |
-| コード | `scripts/trial_factory/eqp_workload_analysis.py` | 新 | エントリポイント（`customer_pref_summary`と同じ、`main()`を呼ぶだけの薄いラッパー） |
-| データ | `EqpWorkloadDF`／`ParetoDF`／`HourlyDF`／`LotDetail` | 新 | `analyze.py`が作る集計データ（機能別処理フロー参照） |
-| データ | `wait_minutes`／`next_eqp_id`／`prev_eqp_id` | 新 | `process.py`が`proc_history`に付与する列 |
-| ドキュメント | `docs/trial_factory/eqp_workload_analysis.md` | 新 | 説明資料 |
-| ドキュメント | `docs/functional-design.md` | 変 | 層構造の原則・コンポーネント表・ドリルダウン方針を反映（先行反映済み） |
-| ドキュメント | `docs/development-guidelines.md` | 変 | `visualize.py`肥大化対策を反映（先行反映済み） |
-| ドキュメント | `docs/repository-structure.md` | 変 | `trial_factory`を最初の本採用プロジェクトとして記載（実装後） |
-| ドキュメント | `docs/product-requirements.md` | 変 | 「既知のリスク」の`docs/reference/`乖離リスクの扱いを見直す（実装後） |
+| SCR | 設備稼働負荷・ロット待機分析レポート | 新 | ①〜⑥の6セクションを1枚のHTMLにまとめる（画面レイアウト参照） |
+| SRC | `common/charts/bar.py` | 変 | 積み上げ棒／単色棒（第1層）。既存に単色モードを追加 |
+| SRC | `common/charts/barline.py` | 新 | 棒＋第2軸の折れ線（第1層） |
+| SRC | `common/charts/area.py` | 新 | 積み上げ面・階段状（第1層） |
+| SRC | `common/charts/gantt.py` | 新 | 区間の水平棒（第1層） |
+| SRC | `common/charts/scatter.py` | 新 | 散布図・scattergl固定（第1層） |
+| SRC | `common/charts/pareto.py` | 新 | 降順ソート＋累積構成比（第2層、描画は`barline.py`に委譲） |
+| SRC | `common/charts/twograph.py` | 新 | x軸共有の2段組（第2層、描画は`gantt.py`/`area.py`に委譲） |
+| SRC | `common/report.py` | 変 | 1段階（棒→明細表）から4段階の逐次クリック型ドリルダウンに拡張。既存の1段版APIは維持 |
+| SRC | `trial_factory/eqp_workload_analysis/cli.py` | 新 | 引数定義 |
+| SRC | `trial_factory/eqp_workload_analysis/io.py` | 新 | 入出力 |
+| SRC | `trial_factory/eqp_workload_analysis/prepare.py` | 新 | 傾向把握（EDA） |
+| SRC | `trial_factory/eqp_workload_analysis/process.py` | 新 | クレンジング・列付与 |
+| SRC | `trial_factory/eqp_workload_analysis/analyze.py` | 新 | 集計 |
+| SRC | `trial_factory/eqp_workload_analysis/visualize.py` | 新 | グラフ組み立て・レポート化 |
+| SRC | `scripts/trial_factory/eqp_workload_analysis.py` | 新 | エントリポイント（`main()`を呼ぶだけの薄いラッパー） |
+| DAT | `EqpWorkloadDF` | 新 | 設備別の処理数・待機時間集計（①〜⑤の元データ） |
+| DAT | `ParetoDF` | 新 | `EqpWorkloadDF`に順位・累積構成比を追加（⑥-1の元データ） |
+| DAT | `HourlyDF` | 新 | 設備×時間帯の稼働状況集計（⑥-2の元データ） |
+| DAT | `LotDetail` | 新 | 上位設備・代表期間のロット明細（⑥-3・⑥-4の元データ） |
+| DAT | `wait_minutes` | 新 | `proc_history`に付与する待機時間列 |
+| DAT | `next_eqp_id` | 新 | `proc_history`に付与する次工程設備ID列 |
+| DAT | `prev_eqp_id` | 新 | `proc_history`に付与する前工程設備ID列 |
+| DOC | `docs/trial_factory/eqp_workload_analysis.md` | 新 | 説明資料 |
+| DOC | `docs/functional-design.md` | 変 | 層構造の原則・コンポーネント表・ドリルダウン方針を反映（先行反映済み） |
+| DOC | `docs/development-guidelines.md` | 変 | `visualize.py`肥大化対策を反映（先行反映済み） |
+| DOC | `docs/repository-structure.md` | 変 | `trial_factory`を最初の本採用プロジェクトとして記載（実装後） |
+| DOC | `docs/product-requirements.md` | 変 | 「既知のリスク」の`docs/reference/`乖離リスクの扱いを見直す（実装後） |
 
 ## 画面レイアウト
 
