@@ -74,101 +74,122 @@ flowchart LR
 描き方」に従う（モジュール間の呼び出し関係＝importの方向は次節
 「コンポーネント構成図」を参照。混ぜない）。
 
-### `prepare.py`（EDA・DuckDB SQL、独立した枝）
-
-`profile_from_parquet()`の結果は`write_profile()`で`profiles/`配下に
-JSONとして書き出すだけで、レポート組み立てには使わない
-（既存`customer_pref_summary`と同じ位置づけ）。
+### `prepare.py`（EDA、独立した枝）
 
 ```mermaid
 flowchart TD
     subgraph SW1["prepare.py"]
         Start1((開始)) -->
         RawData1[("proc_history.parquet")] -->
-        Check1("傾向を把握する<br/>（件数・eqp_id種類数などをSQLで集計）") -->
-        ProfileData1[("ProfileData<br/>（JSON、profiles/へ書き出し）")] -->
+        Check1("データの傾向を把握する") -->
+        ProfileData1["傾向プロファイル"] -->
         End1((終了))
     end
 ```
 
-### `process.py`（クレンジング・DuckDB SQL）
+`profile_from_parquet()`（件数・eqp_id種類数などをSQLで集計）の結果を
+`write_profile()`で`profiles/`配下にJSONとして書き出すだけで、レポート
+組み立てには使わない（既存`customer_pref_summary`と同じ位置づけ）。
+
+### `process.py`（クレンジング）
 
 ```mermaid
 flowchart TD
     subgraph SW2["process.py"]
         Start2((開始)) -->
         RawData2[("proc_history.parquet")] -->
-        Clean2("clean_proc_history()<br/>必須列の欠損・型を整形") -->
-        Annotate2("annotate_lot_sequence()<br/>lot_idごとにope_seq順に並べ、1回のSELECT文で<br/>wait_minutes = start_time − LAG(end_time)<br/>next_eqp_id = LEAD(eqp_id)<br/>prev_eqp_id = LAG(eqp_id) を付与") -->
-        AnnotatedData2[("付与後のproc_history<br/>（DuckDBリレーション、〜数百万行）")] -->
+        Clean2("欠損・型を整形する") -->
+        Annotate2("待機時間と前後工程の設備IDを付与する") -->
+        AnnotatedData2["付与後のproc_history"] -->
         End2((終了))
     end
 ```
 
-待機時間の算出と次工程/前工程の付与は同じSELECT文にまとめ、数百万行の
+`clean_proc_history()`で必須列の欠損・型を整形したうえで、
+`annotate_lot_sequence()`が`lot_id`ごとに`ope_seq`順に並べ、
+**1回のSELECT文**で次の3列を付与する（DuckDBのwindow関数、
+`PARTITION BY lot_id ORDER BY ope_seq`）。
+
+- `wait_minutes` = このope_seqの`start_time` − 1つ前のope_seqの
+  `end_time`（`LAG(end_time)`）
+- `next_eqp_id` = 1つ後のope_seqの`eqp_id`（`LEAD(eqp_id)`）
+- `prev_eqp_id` = 1つ前のope_seqの`eqp_id`（`LAG(eqp_id)`）
+
+待機時間の算出と次工程/前工程の付与を別々の2パスにせず、数百万行の
 テーブルを2回スキャンしない。
 
-### `analyze.py`（集計・DuckDB SQL→pandas）
+### `analyze.py`（集計）
 
 ```mermaid
 flowchart TD
     subgraph SW3["analyze.py"]
-        Start3((開始)) --> In3[("process.pyの出力")]
-        In3 --> AggBar3("aggregate_eqp_workload()<br/>eqp_idごとにCOUNT(*)・SUM(wait_minutes)・<br/>AVG(wait_minutes)を集計（SQL→ここで.df()、約400行）")
-        AggBar3 --> WorkloadDF3[("EqpWorkloadDF<br/>①〜⑤の元データ")]
-        WorkloadDF3 --> Pareto3("build_pareto()<br/>待機時間合計の降順に並べ替え、<br/>累積構成比列を追加（pandas、約400行なので軽い）")
-        Pareto3 --> ParetoDF3[("ParetoDF<br/>⑥-1の元データ")]
-        ParetoDF3 --> Decide3{"上位N台(既定15)・<br/>代表期間(既定3日間)を決定"}
-        Decide3 --> Hourly3("build_hourly_utilization()<br/>1時間ごとの着工比率・着工件数を、<br/>generate_series+区間交差のSQLで集計<br/>（Pythonでロットごとに按分しない）")
+        Start3((開始)) --> In3["process.pyの出力"]
+        In3 --> AggBar3("設備ごとの処理数・待機時間を集計する")
+        AggBar3 --> WorkloadDF3["EqpWorkloadDF<br/>①〜⑤の元データ"]
+        WorkloadDF3 --> Pareto3("待機時間の多い順に並べ、<br/>累積構成比を求める")
+        Pareto3 --> ParetoDF3["ParetoDF<br/>⑥-1の元データ"]
+        ParetoDF3 --> Decide3{"上位設備・対象期間を決める"}
+        Decide3 --> Hourly3("時間帯ごとの稼働状況を集計する")
         In3 --> Hourly3
-        Hourly3 --> HourlyDF3[("HourlyDF<br/>⑥-2の元データ")]
-        Decide3 --> LotDetail3("build_lot_records()<br/>上位N台×代表期間のロット明細をSQLで抽出")
+        Hourly3 --> HourlyDF3["HourlyDF<br/>⑥-2の元データ"]
+        Decide3 --> LotDetail3("対象設備・期間のロット明細を抽出する")
         In3 --> LotDetail3
-        LotDetail3 --> LotDetailData3[("LotDetail（数千行）<br/>⑥-3・⑥-4の元データ")]
+        LotDetail3 --> LotDetailData3["LotDetail<br/>⑥-3・⑥-4の元データ"]
         WorkloadDF3 --> End3((終了))
         HourlyDF3 --> End3
         LotDetailData3 --> End3
     end
 ```
 
-数百万行を扱うのは`process.py`まで。`analyze.py`に入った時点で
-`EqpWorkloadDF`（約400行）・`HourlyDF`（数百行）・`LotDetail`（数千行）の
-いずれかまで小さくなっており、それ以降だけがpandas・ブラウザJSに渡る。
+各処理の実体は`aggregate_eqp_workload()`（`eqp_id`ごとに`COUNT(*)`・
+`SUM(wait_minutes)`・`AVG(wait_minutes)`を集計。ここで初めて`.df()`し
+約400行に）、`build_pareto()`（pandas、約400行なので軽い）、
+`build_hourly_utilization()`（`generate_series`と区間交差の判定で
+時間帯ごとに集計するSQL。Pythonでロットごとに按分しない）、
+`build_lot_records()`（上位N台×代表期間で絞り込むSQL）。数百万行を
+扱うのは`process.py`まで。`analyze.py`に入った時点で`EqpWorkloadDF`
+（約400行）・`HourlyDF`（数百行）・`LotDetail`（数千行）のいずれかまで
+小さくなっており、それ以降だけがpandas・ブラウザJSに渡る。
 
 ### `visualize.py` + `common/report.py`
 
 ```mermaid
 flowchart TD
     subgraph SW4["visualize.py + common/report.py"]
-        Start4((開始)) --> In4[("analyze.pyの出力<br/>（EqpWorkloadDF・ParetoDF・HourlyDF・LotDetail）")]
-        In4 --> Build4("コンポーネント構成図のchartモジュールを呼び、<br/>①〜⑥-2の各go.Figureを作る")
-        Build4 --> Figs4[("①〜⑥-2のgo.Figure群")]
-        Figs4 --> Assemble4("report.pyへFigure群とLotDetailを渡し、<br/>1枚の自己完結HTMLに組み立てる")
+        Start4((開始)) --> In4["analyze.pyの出力"]
+        In4 --> Build4("各グラフを作る")
+        Build4 --> Figs4["①〜⑥-2のgo.Figure群"]
+        Figs4 --> Assemble4("1枚のレポートHTMLに組み立てる")
         In4 --> Assemble4
-        Assemble4 --> Html4[("レポートHTML<br/>（LotDetailはcolumnar JSONとして埋め込み）")]
+        Assemble4 --> Html4["レポートHTML"]
         Html4 --> End4((終了))
     end
 ```
 
-ここで`uv run python scripts/...`のPythonプロセスは終了する。
+`visualize.py`がコンポーネント構成図のchartモジュールを呼んで
+①〜⑥-2の`go.Figure`を作り、`common/report.py`へFigure群と`LotDetail`
+を渡して1枚の自己完結HTMLに組み立てる（`LotDetail`はcolumnar JSONとして
+埋め込む）。ここで`uv run python scripts/...`のPythonプロセスは終了する。
 
 ### ブラウザ（HTMLを開いた後・クリックのたびに動くJS）
 
 ```mermaid
 flowchart TD
     subgraph SW5["ブラウザ"]
-        Start5(("HTMLを開く<br/>（都度・何度でも）")) --> Html5[("埋め込み済みLotDetail")]
-        Html5 --> Gantt5("並行処理枠（行）に詰め直す<br/>→⑥-3上段(gantt)")
-        Html5 --> Wip5("3分類を集計<br/>→⑥-3下段(area)")
-        Html5 --> Detail5("クリックしたlot_idで1行に絞り込む<br/>→⑥-4明細表")
+        Start5((HTMLを開く)) --> Html5["埋め込み済みLotDetail"]
+        Html5 --> Gantt5("ガントチャート用に組み立て直す")
+        Html5 --> Wip5("仕掛数量を集計する")
+        Html5 --> Detail5("選択したロットの明細を表示する")
         Gantt5 --> End5((終了))
         Wip5 --> End5
         Detail5 --> End5
     end
 ```
 
-Pythonプロセス終了後の別処理であり、スクリプト実行1回に対して0回〜
-何度でも起こりうる（`process.py`〜`visualize.py`の一本道とは性質が違う）。
+Gantt5は⑥-3上段(gantt)、Wip5は⑥-3下段(area)、Detail5は⑥-4明細表に
+対応する。Pythonプロセス終了後の別処理であり、スクリプト実行1回に
+対して0回〜何度でも起こりうる（`process.py`〜`visualize.py`の一本道とは
+性質が違う）。
 
 ## コンポーネント構成図
 
