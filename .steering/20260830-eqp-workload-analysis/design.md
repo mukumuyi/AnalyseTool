@@ -36,11 +36,36 @@ https://claude.ai/code/artifact/82556c36-ee84-4dba-aa07-ed6cb68b7208
 | `src/analyse_tool/common/charts/twograph.py` | 第2層 | 新規 | x軸を共有し、ズーム・パン・ホバーが連動する2段組。⑥-3で`gantt.py`と`area.py`を組み合わせる |
 | `src/analyse_tool/common/report.py` | 機構 | 拡張 | 1段階（棒→明細表）から、パレート図→装置稼働グラフ→ガント+仕掛推移→明細表の4段階に一般化。既存の1段版APIは維持し後方互換を壊さない |
 | `src/analyse_tool/trial_factory/eqp_workload_analysis/{cli,io,prepare,process,analyze,visualize}.py` | 案件固有 | 新規 | 本ツール本体。`visualize.py`がレポート全体の調整・グラフ配置・部品へのパラメータ受け渡しを担う |
-| `scripts/trial_factory/eqp_workload_analysis.py` | 新規 | エントリポイント |
-| `docs/trial_factory/eqp_workload_analysis.md` | 新規 | 説明資料 |
-| `docs/functional-design.md` | 更新（実装後） | コンポーネント表の状態更新、ドリルダウン方針を4段階に拡張したことを反映 |
-| `docs/repository-structure.md` | 更新（実装後） | `trial_factory`を最初の本採用プロジェクトとして記載 |
-| `docs/product-requirements.md` | 更新（実装後） | 「既知のリスク」の`docs/reference/`乖離リスクの扱いを見直す |
+| `scripts/trial_factory/eqp_workload_analysis.py` | - | 新規 | エントリポイント（後述） |
+| `docs/trial_factory/eqp_workload_analysis.md` | - | 新規 | 説明資料 |
+| `docs/functional-design.md` | - | 更新（実装後） | コンポーネント表の状態更新、ドリルダウン方針を4段階に拡張したことを反映 |
+| `docs/repository-structure.md` | - | 更新（実装後） | `trial_factory`を最初の本採用プロジェクトとして記載 |
+| `docs/product-requirements.md` | - | 更新（実装後） | 「既知のリスク」の`docs/reference/`乖離リスクの扱いを見直す |
+
+### `scripts/trial_factory/eqp_workload_analysis.py`について
+
+`docs/repository-structure.md`の定義通り「CLI引数解析と`main()`呼び出しの
+みの薄いラッパー」で、それ自体は何も処理しない。実処理は全て
+`src/analyse_tool/trial_factory/eqp_workload_analysis/`側に置く
+（`customer_pref_summary`と同じ位置づけ。参考:
+`docs/reference/analyse_tool/customer_pref_summary/__init__.py`の
+`main()`）。
+
+```python
+"""eqp_workload_analysis のエントリポイント（薄いラッパー）。"""
+
+from __future__ import annotations
+
+from analyse_tool.trial_factory.eqp_workload_analysis import main
+
+if __name__ == "__main__":
+    main()
+```
+
+利用者はこれを`uv run python scripts/trial_factory/eqp_workload_analysis.py
+--input data/trial_factory/proc_history.parquet --output output/...`のように
+実行する。`main()`側（`__init__.py`）が`cli.py`で引数を解析し、
+`prepare`→`process`→`analyze`→`visualize`を順に呼ぶ。
 
 ## 3. モジュール依存関係（グラフ関連）
 
@@ -127,54 +152,102 @@ flowchart TD
   `visualize_sections.py`のように分割してもよい（あくまでツール内の分割。
   `common/`へは上記の「2ツール以上」の条件を満たしてから）。
 
-## 4. データ加工処理の依存関係（`prepare`→`process`→`analyze`→`visualize`）
+## 4. データ加工の処理順序（アクティビティ図）
 
-依頼のあった「データ加工処理の依存関係」をまとめる。矢印は「データが
-流れる」方向。
+**前回の図は「データがどこからどこへ流れるか」と「呼び出し関係」が
+混ざっていて分かりにくかった。ここでは対象を「処理順序」1つに絞り、
+UML アクティビティ図の語彙（開始・終了ノード／アクション／分岐／
+フォーク・ジョイン／スイムレーン）に沿って書き直す。**
+
+Mermaidに専用の「アクティビティ図」記法は無いため、`flowchart`を使い
+`subgraph`をスイムレーン（担当モジュール）として使う、という一般的な
+代用方法を採る。矢印は**すべて「この後どの処理を行うか」という順序**を表し
+（呼び出し関係ではない。呼び出し関係＝importの方向は3節を参照）、
+1つのノードから複数の矢印が出ている箇所はフォーク（並行実行可）、
+複数の矢印が1つのノードに集まる箇所はジョイン（並行処理の合流）を表す。
 
 ```mermaid
 flowchart TD
-    P["data/trial_factory/proc_history.parquet<br/>(lot_id, prodspec_id, mainpd_id,<br/>ope_no, ope_seq, eqp_id,<br/>start_time, end_time)"]
+    Start((開始))
 
-    P --> Prepare["① prepare.py<br/>profile_from_parquet()で傾向把握<br/>（件数・eqp_id種類数など）"]
-    P --> Clean["② process.py: clean_proc_history()<br/>必須列の欠損・型を整形"]
-    Clean --> Wait["② process.py: compute_wait_minutes()<br/>ロット内 ope_seq→ope_seq+1 の<br/>end_time/start_time差分で待機時間を算出<br/>(DuckDB window関数 LEAD)"]
-    Clean --> NextEqp["② process.py: annotate_next_eqp()<br/>LEAD(eqp_id) OVER (PARTITION BY lot_id<br/>ORDER BY ope_seq) で「次工程のeqp_id」を付与<br/>LAG(eqp_id)で「前工程のeqp_id」も付与"]
+    subgraph SW1["① prepare.py（EDA・DuckDB SQL）"]
+        Prepare["proc_historyの傾向を把握する<br/>（件数・eqp_id種類数など）"]
+    end
 
-    Wait --> AggBar["③ analyze.py: aggregate_eqp_workload()<br/>eqp_id別 処理数・待機時間合計/平均<br/>→①②③④⑤の元データ"]
-    Wait --> AggPareto["③ analyze.py: build_pareto()<br/>待機時間合計 降順+累積構成比<br/>→⑥-1 パレート図"]
-    AggPareto --> TopN["上位N台(既定15)の eqp_id リストを確定<br/>→ ⑥-2以降はこのN台分のみ深掘り対象"]
+    subgraph SW2["② process.py（クレンジング・DuckDB SQL）"]
+        Clean["clean_proc_history()<br/>必須列の欠損・型を整形"]
+        Annotate["annotate_lot_sequence()<br/>1回のSQLで同時に計算:<br/>・wait_minutes（次工程start_time − 今の工程end_time）<br/>・next_eqp_id（LEAD(eqp_id)）<br/>・prev_eqp_id（LAG(eqp_id)）<br/>すべて PARTITION BY lot_id ORDER BY ope_seq"]
+    end
 
-    TopN --> Hourly["③ analyze.py: build_hourly_utilization()<br/>上位N台×時間帯(1h)で<br/>着工中/待機の時間比率・着工件数を集計<br/>→ ⑥-2 装置稼働グラフ"]
-    TopN --> LotDetail["③ analyze.py: build_lot_records()<br/>上位N台に関係するロットの明細<br/>(lot_id, eqp_id, ope_no, ope_seq,<br/>start_time, end_time, next_eqp_id, prev_eqp_id)<br/>→ ⑥-3 ガント/仕掛推移 と ⑥-4 明細表 の共通ソース"]
-    NextEqp --> LotDetail
+    subgraph SW3["③ analyze.py（集計・DuckDB SQL→pandas）"]
+        AggBar["aggregate_eqp_workload()<br/>eqp_id別 GROUP BY 集計<br/>(SQL, 結果は約400行)<br/>→①②③④⑤の元データ"]
+        Pareto["build_pareto()<br/>降順ソート+累積構成比<br/>(pandas, 約400行なので軽い)<br/>→⑥-1 パレート図"]
+        Decide{"上位N台(既定15)を確定<br/>かつ代表期間(既定3日間)を選定"}
+        Hourly["build_hourly_utilization()<br/>時間軸カレンダー×lot区間の<br/>交差時間をSQLで集計<br/>(generate_series+区間交差、SQL)<br/>→⑥-2 装置稼働グラフ"]
+        LotDetail["build_lot_records()<br/>上位N台×代表期間で絞り込んだ<br/>ロット明細を作る(SQL WHERE)<br/>→LotDetail（数千行程度）"]
+    end
 
-    LotDetail --> Gantt["④ visualize.py（ブラウザ側JS）<br/>選択eqp×時間帯のlot_recordsから<br/>並行処理枠（行）に詰め直す<br/>→ ⑥-3 twograph.py 上段（gantt.py）"]
-    LotDetail --> Wip["④ visualize.py（ブラウザ側JS）<br/>同じlot_recordsから<br/>着工中/待機(自装置)/待機(他装置)を集計<br/>→ ⑥-3 twograph.py 下段（area.py）"]
-    LotDetail --> Detail["④ visualize.py（ブラウザ側JS）<br/>クリックしたlot_idで1行に絞り込み<br/>→ ⑥-4 ロット明細表"]
+    subgraph SW4["④ visualize.py + common/report.py"]
+        Assemble["①〜⑥のFigureとLotDetailを<br/>1枚の自己完結HTMLに組み立てる"]
+    end
 
-    AggBar --> Report["④ visualize.py → common/report.py<br/>①〜⑥を1枚のHTMLに組み立て"]
-    AggPareto --> Report
-    Hourly --> Report
-    LotDetail --> Report
+    subgraph SW5["ブラウザ（クリック時・JS、Pythonは呼ばない）"]
+        Gantt["LotDetailを並行処理枠（行）に詰め直す<br/>→⑥-3 twograph上段(gantt)"]
+        Wip["LotDetailから3分類を集計<br/>→⑥-3 twograph下段(area)"]
+        Detail["クリックしたlot_idで1行に絞り込む<br/>→⑥-4 明細表"]
+    end
+
+    End((終了))
+
+    Start --> Prepare
+    Start --> Clean
+    Clean --> Annotate
+    Annotate --> AggBar
+    AggBar --> Pareto
+    Pareto --> Decide
+    Decide --> Hourly
+    Decide --> LotDetail
+    Hourly --> Assemble
+    LotDetail --> Assemble
+    AggBar --> Assemble
+    Pareto --> Assemble
+    Prepare --> Assemble
+    Assemble --> Gantt
+    Assemble --> Wip
+    Assemble --> Detail
+    Gantt --> End
+    Wip --> End
+    Detail --> End
 ```
 
-ポイント:
+### SQL / pandas の境界（懸念点への回答）
 
-- **①〜⑤・⑥-1（パレート図）までは`analyze.py`が集計済みの小さいDataFrame
-  を作り、`visualize.py`にはそれだけを渡す**（既存方針通り）。
-- **⑥-2（装置稼働グラフ）は上位N台分だけを`analyze.py`で事前集計**する
-  （全400台分は作らない）。
-- **⑥-3（ガント＋仕掛推移）と⑥-4（明細表）は、`analyze.py`が作る
-  「上位N台に関係するロット明細（`LotDetail`）」という1つの共通データを
-  ソースにする**。装置稼働グラフの1時間棒をクリックした時点で新たに
-  Pythonを呼び直すことはできない（`file://`で開く自己完結HTMLのため）ので、
-  クリック時の絞り込み・再集計（並行枠への詰め直し・3分類の件数集計）は
-  ブラウザ側のJSで行う。ここは`common/report.py`が既に採用している
-  「明細データをJSONで埋め込み、クリック時にJSで絞り込む」方式の延長線上
-  にある。
-- **`process.py`の`annotate_next_eqp()`**（`LEAD(eqp_id)`）が仕掛数量推移の
-  3分類判定の起点になる。定義は次の通り（design確定事項）:
+「Pandasで重い処理になっていないか」への回答として、各アクティビティが
+どちらで実行されるか、その時点のおおよその行数を明記する。
+
+| アクティビティ | 実行エンジン | この時点の行数の目安 | 補足 |
+| --- | --- | --- | --- |
+| `clean_proc_history()` | DuckDB SQL | 〜数百万行 | `WHERE`と型整形のみ。DuckDBのリレーション（遅延評価）のまま次に渡す |
+| `annotate_lot_sequence()` | DuckDB SQL | 〜数百万行 | `LEAD`/`LAG`をまとめて1回のSELECTに書く（**待機時間算出と次工程/前工程の付与を別々の2パスにしない**。同じ`PARTITION BY lot_id ORDER BY ope_seq`なので1回のwindow関数呼び出しで済む） |
+| `aggregate_eqp_workload()` | DuckDB SQL → ここで初めて`.df()` | 数百万行 → **約400行** | `GROUP BY eqp_id`。結果が400行程度まで小さくなった時点で初めてpandasに渡す（`docs/architecture.md`の方針通り） |
+| `build_pareto()` | pandas | 約400行 | 入力が既に小さいので、ソート＋累積和はpandasで十分軽い |
+| `build_hourly_utilization()` | DuckDB SQL | 上位15台分に絞った後の数十万行 → 数百行 | **時間バケットへの分割は`generate_series`で作った1時間刻みのカレンダーと処理区間をJOINし、`least(end_time, bucket_end) - greatest(start_time, bucket_start)`のような区間交差の計算をSQLで行う（Pythonでロットごとに時間帯をループして手計算しない）**。集計結果は「上位15台×代表期間の時間数」程度の小さいテーブルになる |
+| `build_lot_records()` | DuckDB SQL | 数百万行 → 上位15台×代表3日間で数千行程度 | `WHERE eqp_id IN (...) AND start_time BETWEEN ...`で先に絞り込んでから`.df()`する。全400台×全期間をpandasに載せることはしない |
+| ブラウザ側のJS（詰め直し・集計・絞り込み） | JS（クライアント） | 数千行程度（`LotDetail`のみ） | `file://`で開く自己完結HTMLのため、クリック時にPythonは呼べない。対象は「上位15台×代表期間」に絞り込み済みの`LotDetail`のみなので、ブラウザでの処理も軽い（詳細は5節） |
+
+ポイント（まとめ）:
+
+- **数百万行を扱うのは`process.py`まで。`analyze.py`に入った時点で
+  「①GROUP BY結果（400行）」「②時間バケット結果（数百行）」
+  「③絞り込み済みLotDetail（数千行）」のいずれかまで小さくなっており、
+  それ以降だけがpandas・ブラウザJSに渡る。**
+- **待機時間の算出と次工程/前工程の付与は同じSQL文にまとめる**
+  （`process.py`の関数は分けてもよいが、実行するSELECT文自体は1つにし、
+  数百万行のテーブルを2回スキャンしない）。
+- **時間帯ごとの集計（⑥-2）は必ずSQLの集合演算で行い、Pythonでロット単位
+  にループして時間帯へ按分する実装は禁止**する（実質的に行数分のループに
+  なり、数百万行規模では遅い）。
+- 仕掛数量推移の3分類判定（`next_eqp_id`/`prev_eqp_id`）の定義:
   - **待機中（自装置着工）**: 待機中のロットのうち、次工程の`eqp_id`が
     選択中の装置と一致するもの（＝これからこの装置に来る＝この装置の
     入り待ち行列）
@@ -185,10 +258,14 @@ flowchart TD
     どちらにも属さず含まれない（意図的。この装置の稼働と直接関係する
     範囲に絞ることで、母数が工場全体のロット数に膨れ上がるのを防ぐ）。
 
-## 5. データ量対策（`LotDetail`のサイズ管理）
+## 5. データ量対策（`LotDetail`のサイズ管理とガント描画の軽量化）
 
 `requirements.md`の受け入れ条件「全設備・全期間の初期表示で密集させない」
-「大量データをそのまま埋め込まない」に対応する具体策:
+「大量データをそのまま埋め込まない」に対応する具体策。`LotDetail`自体の
+絞り込みに加えて、**ガントチャートで「ロットの着工を1つの四角として描く」
+ときの具体的な軽量化策**（レビューでの質問への回答）を以下に分けて記す。
+
+### 5-1. `LotDetail`（埋め込みデータ）のサイズ管理
 
 - `LotDetail`は**パレート図で確定した上位N台（既定15台）のみ**を対象にする
   （全400台分は作らない）。
@@ -196,12 +273,39 @@ flowchart TD
   15万行規模になり埋め込みには重い。そのため`analyze.py`側でさらに
   **`time_range`のうち代表的な1区間（既定: 最初の3日間、`--gantt-days`等で
   可変にする）に絞った`LotDetail`のみ**をHTMLに埋め込む。装置稼働グラフの
-  1時間棒（24時間分）は、この絞り込んだ区間内の時間帯のみクリック可能に
-  し、その旨をUI上に注記する（「直近3日間のみドリルダウン可」等）。
+  時間軸（既定: 代表期間分の1時間棒＝3日間なら72本）は、この絞り込んだ
+  区間内の時間帯のみクリック可能にし、その旨をUI上に注記する
+  （「直近3日間のみドリルダウン可」等）。
 - 上記の絞り込み日数・件数上限は実データ（`prepare.py`のプロファイル結果）
   を見て`tasklist.md`実装時に具体値を確定する。埋め込みJSONが大きくなり
   すぎる場合は、`common/report.py`の`max_detail_rows`と同様に上限件数を
   設け、超過時はその旨を注記する。
+- **埋め込みJSON自体は「行の配列（records）」ではなく列ごとの配列
+  （columnar形式、例: `{"lot_id": [...], "eqp_id": [...], "start_time": [...]}`）
+  にする**。キー名を行ごとに繰り返さないため、同じデータ量でもJSON
+  サイズを大きく削減できる（`common/report.py`の1段版が使うrecords形式
+  とは別の、ガント/仕掛推移専用のより軽い埋め込み形式にする）。
+
+### 5-2. ガントチャート（⑥-3上段）の描画を軽くする具体策
+
+- **1本のロット区間＝1つの`go.Bar`要素だが、トレース自体はまとめて1本に
+  する。** 選択eqp・選択時間帯の区間をすべて集めて、`x`（区間の長さ）・
+  `base`（開始位置）・`y`（並行処理枠の行）・`marker_color`（ステータス
+  別の色）・`text`（ロットID）をそれぞれ配列として1つの`go.Bar`トレースに
+  渡す（`fig.add_trace()`をロットの数だけ繰り返さない）。トレース数を
+  1本に抑えることが、ブラウザの描画負荷を下げる一番効果的な対策になる。
+- **ロットIDのラベル表示は区間の幅で出し分ける。** `text`配列を作る時点で
+  Python側が区間の想定表示幅を計算し、狭すぎる区間は空文字列にする
+  （ホバー時の`hovertext`には常にロットIDを入れておくので、情報は失わない）。
+- **並行処理枠（行）への詰め直しは、ブラウザ側でも軽いアルゴリズムにする。**
+  区間を開始時刻順に並べ、「その時点で空いている最初の行に置く。無ければ
+  新しい行を作る」という貪欲法（区間スケジューリングの標準的な手法、
+  計算量O(n log n)）で実装する。対象は5-1で絞り込み済みの
+  `LotDetail`（選択eqp・時間帯の範囲内、実際には数十〜数百件程度）に
+  限定されるため、ブラウザ側で毎回計算しても軽い。
+- **想定を超えて区間数が多い時間帯への安全弁を設ける。** 万一1つの時間帯
+  に極端に区間が多い場合に備え、`common/report.py`の`max_detail_rows`と
+  同様に表示件数の上限を設け、超過時は「先頭N件のみ表示」と注記する。
 
 ## 6. `common/report.py`の拡張方式
 
@@ -235,7 +339,7 @@ Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパ
 | ②③待機時間合計/平均 | `bar.py`(第1層) | 単色棒 | x=eqp_id, y=分 | 上位10台 | 同上 |
 | ④⑤散布図 | `scatter.py`(第1層) | scattergl | x=処理数, y=待機時間 | 全上位15台点表示 | 新規実装（`docs/functional-design.md`に追記） |
 | ⑥-1パレート図 | `pareto.py`(第2層)→`barline.py`(第1層) | 棒＋線（2軸） | x=eqp_id（待機時間合計降順）, y1=待機時間合計, y2=累積構成比(0-100%) | 上位15台、累積80%ラインの目安線を表示 | クリックでeqp_id選択 |
-| ⑥-2装置稼働グラフ | `barline.py`(第1層) | 積み上げ棒＋線（2軸） | x=時刻(1h), y1=着工中/待機の時間比率, y2=着工件数 | 選択eqpの24時間 | クリックで時間帯選択（5.のデータ量対策により選択可能な範囲を絞る場合あり） |
+| ⑥-2装置稼働グラフ | `barline.py`(第1層) | 積み上げ棒＋線（2軸） | x=時刻(1h), y1=着工中/待機の時間比率, y2=着工件数 | 選択eqpの代表期間分（既定3日間＝72本） | クリックで時間帯選択（5節のデータ量対策により、選択可能な範囲は代表期間内に限る） |
 | ⑥-3ガント（twograph上段） | `twograph.py`(第2層)→`gantt.py`(第1層) | 水平棒（`base`+`x`で区間表現） | y=並行処理枠（行）, x=時刻 | 選択eqp・選択時間帯を中心とした窓（既定4時間） | 着工中区間に`lot_id`をテキスト表示、待機はグレー |
 | ⑥-3仕掛数量推移（twograph下段） | `twograph.py`(第2層)→`area.py`(第1層) | 積み上げ面（階段状、`stackgroup`） | x=時刻（ガントと共有のx軸） | ガントと同じ窓 | 3分類（着工中／待機中(自)／待機中(他)）。`shared_xaxes=True`によりガントとズーム・パン連動 |
 | ⑥-4ロット明細表 | `common/report.py` | HTML表 | - | 選択ロット1件（同一lot_id内の全工程行も参考として表示するかはtasklist時に決定） | `common/report.py`の明細表描画を流用 |
