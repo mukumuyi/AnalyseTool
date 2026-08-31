@@ -9,10 +9,10 @@ AnalyseTool/
 ├── pyproject.toml / uv.lock     uvプロジェクト定義
 ├── .python-version              Pythonバージョン固定
 │
-├── scripts/                     各ツールのエントリポイント（薄いラッパー）※本採用後に作成
+├── scripts/                     各ツールのエントリポイント（薄いラッパー）
 │   └── <プロジェクト名>/
 │       └── <ツール名>.py
-├── src/analyse_tool/            ツール本体の実装 ※本採用後に作成
+├── src/analyse_tool/            ツール本体の実装
 │   ├── common/                  全プロジェクト横断で共有する処理
 │   │   ├── charts/              グラフ種類ごとの共通モジュール（bar.py等）
 │   │   ├── profile.py           DatasetProfile / ColumnProfile の定義
@@ -33,7 +33,7 @@ AnalyseTool/
 │       └── <YYYYMMDD>/          実行日
 │           └── <ツール名>_<HHMMSS>.html 等   ファイル名に実行時刻を付与（同日複数回実行しても上書きされない）
 │
-├── tests/                       src/analyse_tool/ と対応するユニットテスト ※本採用後に作成
+├── tests/                       src/analyse_tool/ と対応するユニットテスト
 │   └── common/
 │       └── charts/
 │           └── test_bar.py
@@ -84,9 +84,10 @@ AnalyseTool/
 | `.steering/` | 作業単位ドキュメント（今回の要求・設計・タスクリスト） |
 
 「プロジェクト」の境界は、扱うデータ（テーブル群）と業務ドメインで決める
-（例: 顧客・注文データを扱う分析群なら`sales`のようにまとめる）。現時点では
-具体的なプロジェクトが1つも本採用されていないため、最初のツールを
-`src/`+`scripts/`へ本採用するタイミングで最初のプロジェクト名を決める。
+（例: 顧客・注文データを扱う分析群なら`sales`のようにまとめる）。最初の
+本採用プロジェクトは`trial_factory`（`eqp_workload_analysis`。
+`data/trial_factory/`・`output/trial_factory/`に合わせた名称）で、
+`.steering/20260830-eqp-workload-analysis/`で設計・実装した。
 
 ## ファイル配置ルール
 
@@ -104,9 +105,12 @@ AnalyseTool/
 場所ではない。
 
 現在この配下にあった試作実装（`customer_pref_summary`・
-`generate_sample_data`）は`docs/reference/`へ移動済みで、最初の本採用
-（`src/`+`scripts/`への移行）が完了したら、`docs/reference/`ごと削除する
-想定。
+`generate_sample_data`）は`docs/reference/`へ移動済み。最初の本採用
+（`trial_factory`/`eqp_workload_analysis`）は`docs/reference/`を経由せず
+直接`src/`+`scripts/`として実装したが、`customer_pref_summary`・
+`generate_sample_data`自体はまだ`docs/reference/`の参考実装のままで
+`src/`へ移行していない。これらも`src/`+`scripts/`へ本採用したら、
+`docs/reference/`ごと削除する想定。
 
 ### `output/`の構成
 

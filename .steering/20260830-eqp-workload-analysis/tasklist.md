@@ -109,18 +109,23 @@
 
 ### 説明資料・永続ドキュメント
 
-- [ ] 26. `docs/trial_factory/eqp_workload_analysis.md`を
+- [x] 26. `docs/trial_factory/eqp_workload_analysis.md`を
        `docs/templates/tool-doc.md`から作成する（処理概要・I/O説明・
        実行オプション・既知の制約）
-- [ ] 27. `docs/functional-design.md`のコンポーネント表（`common/charts/*`
+- [x] 27. `docs/functional-design.md`のコンポーネント表（`common/charts/*`
        の状態）を「未実装（設計合意済み）」→「実装済み」に更新する
-- [ ] 28. `docs/functional-design.md`の「ツールごとの実装」表に
+       （`box.py`/`histogram.py`/`pie.py`は本ツールの対象外のため
+       「未実装」のまま）
+- [x] 28. `docs/functional-design.md`の「ツールごとの実装」表に
        `eqp_workload_analysis`を追加する
-- [ ] 29. `docs/repository-structure.md`を更新し、`trial_factory`が
-       最初の本採用プロジェクトであることを反映する
-- [ ] 30. `docs/product-requirements.md`の「既知のリスク」を見直す
-       （design.md「対象」の`DOC`行の通り、`docs/reference/`側の
-       プロトタイプが残っている間はリスク文言自体は残す）
+- [x] 29. `docs/repository-structure.md`を更新し、`trial_factory`が
+       最初の本採用プロジェクトであることを反映する（フォルダ構成図の
+       `※本採用後に作成`という注記も、実在するようになったため削除した）
+- [x] 30. `docs/product-requirements.md`の「既知のリスク」を確認した。
+       本ツールは`docs/reference/`を経由せず直接`src/`+`scripts/`として
+       実装したため、この項目（`customer_pref_summary`・
+       `generate_sample_data`の`docs/reference/`乖離リスク）は影響を
+       受けず、変更不要と判断した
 
 ### 品質チェック・最終確認
 
@@ -130,10 +135,17 @@
       目次に使う実行日時はUTCではなくローカル時刻であるべきため）
 - [x] 32. `uv run mypy .`を実行する
 - [x] 33. `uv run pytest`を実行する（52件、全て成功）
-- [ ] 34. `requirements.md`の受け入れ条件を満たしているか最終確認する
-       （4ステップ構成・DuckDB集計・`file://`自己完結HTML・4段階
-       ドリルダウン・並行処理枠の視覚的区別・仕掛数量推移の3分類・
-       説明資料の作成・品質チェック通過）
+- [x] 34. `requirements.md`の受け入れ条件を最終確認した。全項目を満たす:
+       4ステップ構成／`prepare`・`process`はDuckDBのSQL集計のみで
+       pandas全件ロードなし（`analyze.py`で初めて`.df()`する）／
+       `file://`自己完結HTML・`output/trial_factory/<日付>/`への実行時刻
+       付きファイル名書き出し・`index.html`への追記登録／①〜⑥すべて
+       実装しヘッドレスブラウザで4段階ドリルダウンを実クリックで確認／
+       ガントの並行処理枠が複数ロットを行分けして表示し`lot_id`が読める／
+       仕掛数量推移が3分類の積み上げでガントと時間軸を共有／ロット明細表が
+       クリックしたロットの明細（`lot_id`等11列）／上位N件への絞り込み
+       （①⑤は上位15台、②③は上位10台）／説明資料作成／
+       `ruff check`・`ruff format`・`mypy`・`pytest`（52件）が全て成功
 
 ## 完了条件
 
@@ -194,3 +206,9 @@
 直後にドメインJSが自動描画する既定の設備・時間帯）は、単純に代表期間の
 先頭ではなく、最も稼働している時間帯を選ぶよう`visualize.py`の
 `_default_hour()`で調整した。
+
+タスク26〜34完了。説明資料・永続ドキュメントの更新、品質チェック
+（`ruff check`/`ruff format`/`mypy`/`pytest`）、`requirements.md`の
+受け入れ条件の最終確認まで完了した。
+
+全34タスク完了。

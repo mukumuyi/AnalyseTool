@@ -152,18 +152,18 @@ erDiagram
 | モジュール | 層 | 役割 | 状態 |
 | --- | --- | --- | --- |
 | `common/profile.py` | - | `DatasetProfile`/`ColumnProfile`の定義、保存・読込、`profile_from_parquet()` | 実装済み |
-| `common/report.py` | - (ドリルダウン機構) | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て。各段は1つの`go.Figure`を渡す想定（複数グラフを1段にまとめたい場合は、その合成自体を第2層のchartモジュール側の責務とし、`report.py`側では特別扱いしない） | 実装済み（1段ドリルダウンのみ）。N段への一般化は`.steering/20260830-eqp-workload-analysis/design.md`で設計確定、実装待ち |
-| `common/output_index.py` | - | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 未実装（設計合意済み） |
-| `common/charts/bar.py` | 第1層 | 積み上げ棒グラフ（`color`省略時の単色モードを追加予定） | 実装済み |
-| `common/charts/barline.py` | 第1層 | 棒＋第2軸の折れ線 | 未実装（設計合意済み） |
-| `common/charts/area.py` | 第1層 | 積み上げ面グラフ（階段状も可） | 未実装（設計合意済み） |
-| `common/charts/gantt.py` | 第1層 | 区間の水平棒（並行処理枠等の複数行に対応） | 未実装（設計合意済み） |
-| `common/charts/scatter.py` | 第1層 | 散布図（`scattergl`固定、WebGL） | 未実装（設計合意済み） |
+| `common/report.py` | - (ドリルダウン機構) | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て。各段は1つの`go.Figure`を渡す想定（複数グラフを1段にまとめたい場合は、その合成自体を第2層のchartモジュール側の責務とし、`report.py`側では特別扱いしない） | 実装済み。既存の1段版`build_bar_click_detail_html()`に加え、`build_multi_stage_drilldown_html()`でN段（選択式／構築式）のドリルダウンに対応 |
+| `common/output_index.py` | - | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 実装済み |
+| `common/charts/bar.py` | 第1層 | 積み上げ棒グラフ／単色棒グラフ（`color`省略時） | 実装済み |
+| `common/charts/barline.py` | 第1層 | 棒＋第2軸の折れ線 | 実装済み |
+| `common/charts/area.py` | 第1層 | 積み上げ面グラフ（階段状も可） | 実装済み |
+| `common/charts/gantt.py` | 第1層 | 区間の水平棒（並行処理枠等の複数行に対応） | 実装済み |
+| `common/charts/scatter.py` | 第1層 | 散布図（`scattergl`固定、WebGL） | 実装済み |
 | `common/charts/box.py` | 第1層 | 箱ひげ図（EDAでの分布・外れ値確認） | 未実装（設計合意済み） |
 | `common/charts/histogram.py` | 第1層 | ヒストグラム（EDAでの分布形状確認、`color`で重ね描き） | 未実装（設計合意済み） |
 | `common/charts/pie.py` | 第1層 | 円グラフ（構成比） | 未実装（設計合意済み） |
-| `common/charts/pareto.py` | 第2層 | パレート図（降順ソート・累積構成比・80%目安線。描画は`barline.py`に委譲） | 未実装（設計合意済み） |
-| `common/charts/twograph.py` | 第2層 | x軸を共有する2段組（Plotlyの`shared_xaxes`でズーム・パンを連動、下段・上段は第1層の各モジュールに委譲） | 未実装（設計合意済み） |
+| `common/charts/pareto.py` | 第2層 | パレート図（降順ソート・累積構成比・80%目安線。描画は`barline.py`に委譲） | 実装済み |
+| `common/charts/twograph.py` | 第2層 | x軸を共有する2段組（Plotlyの`shared_xaxes`でズーム・パンを連動、下段・上段は第1層の各モジュールに委譲） | 実装済み |
 
 ### `common/report.py`のドリルダウン設計方針
 
@@ -188,6 +188,7 @@ erDiagram
 | --- | --- | --- |
 | `generate_sample_data` | `cli.py`/`io.py`/`generate.py`（4ステップ構成の例外） | プロファイルJSON→Parquetを`CHUNK_ROWS`単位で生成。`references`対応時は、依存関係のあるプロファイル群をまとめて受け取り参照先→参照元の順で生成する形への拡張が必要（未実装、上記「データモデル定義」参照） |
 | `customer_pref_summary` | `cli.py`/`io.py`/`prepare.py`/`process.py`/`analyze.py`/`visualize.py` | pref×segment集計＋クリック連動明細のリファレンス実装 |
+| `trial_factory/eqp_workload_analysis` | `cli.py`/`io.py`/`prepare.py`/`process.py`/`analyze.py`/`visualize.py` | 本リポジトリ初の本採用（`src/`+`scripts/`）。設備稼働負荷・ロット待機の集計と、パレート図→装置稼働グラフ→ガントチャート＋仕掛数量推移→ロット明細表の4段階ドリルダウン。詳細は`docs/trial_factory/eqp_workload_analysis.md` |
 
 ## ユースケース図、画面遷移図、ワイヤフレーム
 
