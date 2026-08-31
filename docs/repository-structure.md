@@ -79,7 +79,7 @@ AnalyseTool/
 | `docs/`（直下） | 永続的ドキュメント一式 |
 | `docs/<プロジェクト名>/` | 本採用後の各ツール説明資料 |
 | `docs/glossary/` | ユビキタス言語。全プロジェクト横断の用語（`common.md`）とプロジェクト固有の用語（`<プロジェクト名>.md`）に分ける |
-| `docs/templates/` | テンプレートの置き場。永続的ドキュメントの空テンプレートとツール説明資料のテンプレート（`tool-doc.md`）をまとめる |
+| `docs/templates/` | テンプレートの置き場。永続的ドキュメントの空テンプレート、ツール説明資料のテンプレート（`tool-doc.md`）、作業単位ドキュメントのうち`design.md`のテンプレート（`design.md`）をまとめる |
 | `docs/ideas/` | ブレスト・試作アイデアのメモ（後述の「現在ideas/reference/にあるもの」を参照） |
 | `.steering/` | 作業単位ドキュメント（今回の要求・設計・タスクリスト） |
 
@@ -136,7 +136,8 @@ AnalyseTool/
 - ツール説明資料（`docs/<プロジェクト名>/<ツール名>.md`）を新規作成する際は、
   `docs/templates/tool-doc.md`を複製して書き始める。
 - 作業単位ドキュメント（`.steering/`）は`docs/development-process.md`の
-  命名規則・手順に従う。
+  命名規則・手順に従う。このうち`design.md`は`docs/templates/design.md`を
+  複製して書き始める。
 
 ### その他
 
