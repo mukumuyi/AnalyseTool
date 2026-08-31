@@ -30,7 +30,7 @@ https://claude.ai/code/artifact/82556c36-ee84-4dba-aa07-ed6cb68b7208
 | `src/analyse_tool/common/charts/bar.py` | 第1層 | 既存＋微修正 | 積み上げ棒（`stacked_bar()`）。①②③で単色棒としても使うため`color`省略時の単色モードを追加 |
 | `src/analyse_tool/common/charts/barline.py` | 第1層 | 新規 | 棒（1〜n系列・stack可）＋第2軸の折れ線。⑥-1と⑥-2で共用する |
 | `src/analyse_tool/common/charts/area.py` | 第1層 | 新規 | 積み上げ面（階段状も可）。⑥-3の仕掛数量推移で使用 |
-| `src/analyse_tool/common/charts/gantt.py` | 第1層 | 新規 | 区間の水平棒。並行処理枠を複数行として持てる |
+| `src/analyse_tool/common/charts/gantt.py` | 第1層 | 新規 | 区間の水平棒。並行処理枠を複数行として持てる（実データ確認により平均9・最大16行程度を想定、11節参照） |
 | `src/analyse_tool/common/charts/scatter.py` | 第1層 | 新規 | 散布図（`scattergl`固定）。④⑤で使用 |
 | `src/analyse_tool/common/charts/pareto.py` | 第2層 | 新規 | 降順ソート・累積構成比・80%目安線というパレート図の作法。描画は`barline.py`に委譲 |
 | `src/analyse_tool/common/charts/twograph.py` | 第2層 | 新規 | x軸を共有し、ズーム・パン・ホバーが連動する2段組。⑥-3で`gantt.py`と`area.py`を組み合わせる |
@@ -170,8 +170,9 @@ Mermaidに専用の「アクティビティ図」記法は無いため、`flowch
 flowchart TD
     Start((開始))
 
-    subgraph SW1["① prepare.py（EDA・DuckDB SQL）"]
+    subgraph SW1["prepare.py（EDA・独立した枝）"]
         Prepare["proc_historyの傾向を把握する<br/>（件数・eqp_id種類数など）"]
+        WriteProfile["profiles/へJSONとして書き出すだけ<br/>（レポートには使わない）"]
     end
 
     subgraph SW2["② process.py（クレンジング・DuckDB SQL）"]
@@ -191,7 +192,9 @@ flowchart TD
         Assemble["①〜⑥のFigureとLotDetailを<br/>1枚の自己完結HTMLに組み立てる"]
     end
 
-    subgraph SW5["ブラウザ（クリック時・JS、Pythonは呼ばない）"]
+    ProcEnd(["※ここで uv run python scripts/... の<br/>Pythonプロセスは終了する"])
+
+    subgraph SW5["ブラウザ（HTMLを開いた後・クリックのたびに動くJS）"]
         Gantt["LotDetailを並行処理枠（行）に詰め直す<br/>→⑥-3 twograph上段(gantt)"]
         Wip["LotDetailから3分類を集計<br/>→⑥-3 twograph下段(area)"]
         Detail["クリックしたlot_idで1行に絞り込む<br/>→⑥-4 明細表"]
@@ -200,25 +203,42 @@ flowchart TD
     End((終了))
 
     Start --> Prepare
+    Prepare --> WriteProfile
+    WriteProfile --> End
+
     Start --> Clean
     Clean --> Annotate
     Annotate --> AggBar
     AggBar --> Pareto
+    AggBar -->|"①②③④⑤の元データとして<br/>そのまま使う"| Assemble
     Pareto --> Decide
     Decide --> Hourly
     Decide --> LotDetail
     Hourly --> Assemble
     LotDetail --> Assemble
-    AggBar --> Assemble
     Pareto --> Assemble
-    Prepare --> Assemble
-    Assemble --> Gantt
-    Assemble --> Wip
-    Assemble --> Detail
+    Assemble --> ProcEnd
+    ProcEnd -.->|"HTMLをブラウザで開く<br/>（都度・何度でも）"| Gantt
+    ProcEnd -.-> Wip
+    ProcEnd -.-> Detail
     Gantt --> End
     Wip --> End
     Detail --> End
 ```
+
+**`prepare.py`は独立した枝であり、レポート組み立て（`Assemble`）には合流しない**
+（既存`customer_pref_summary`と同じ位置づけ。`profile_from_parquet()`の結果は
+`write_profile()`で`profiles/`配下にJSONとして書き出すだけで、`visualize.py`
+には渡さない）。
+
+**本当に一本道（数珠つなぎ）でつながっているのは`Clean`→`Annotate`→
+`AggBar`→`Pareto`→`Decide`→（`Hourly`と`LotDetail`の並行実行）→
+`Assemble`まで**で、ここで`uv run python scripts/...`のPythonプロセスは
+終了する。それより先（ガント／仕掛推移／明細表の切り替え）は、レポート
+HTMLをブラウザで開いたあとにクリックされるたびに動くJSであり、スクリプト
+実行1回に対して0回〜何度でも起こりうる、性質の異なる「その後」である
+（同じ矢印で数珠つなぎに繋ぐと誤解を招くため、点線＋区切りノードで明示的に
+分けた）。
 
 ### SQL / pandas の境界（懸念点への回答）
 
@@ -303,6 +323,9 @@ flowchart TD
   計算量O(n log n)）で実装する。対象は5-1で絞り込み済みの
   `LotDetail`（選択eqp・時間帯の範囲内、実際には数十〜数百件程度）に
   限定されるため、ブラウザ側で毎回計算しても軽い。
+  **実データで確認したところ、この行数（同時並行数）は平均9・最大16
+  （11節参照）になるため、固定4行のような小さい前提を置かず、貪欲法の
+  結果に応じて可変にし、縦方向はスクロール前提のレイアウトにする。**
 - **想定を超えて区間数が多い時間帯への安全弁を設ける。** 万一1つの時間帯
   に極端に区間が多い場合に備え、`common/report.py`の`max_detail_rows`と
   同様に表示件数の上限を設け、超過時は「先頭N件のみ表示」と注記する。
@@ -340,7 +363,7 @@ Artifactモック（上記URL）の通りとし、以下はPlotly実装時のパ
 | ④⑤散布図 | `scatter.py`(第1層) | scattergl | x=処理数, y=待機時間 | 全上位15台点表示 | 新規実装（`docs/functional-design.md`に追記） |
 | ⑥-1パレート図 | `pareto.py`(第2層)→`barline.py`(第1層) | 棒＋線（2軸） | x=eqp_id（待機時間合計降順）, y1=待機時間合計, y2=累積構成比(0-100%) | 上位15台、累積80%ラインの目安線を表示 | クリックでeqp_id選択 |
 | ⑥-2装置稼働グラフ | `barline.py`(第1層) | 積み上げ棒＋線（2軸） | x=時刻(1h), y1=着工中/待機の時間比率, y2=着工件数 | 選択eqpの代表期間分（既定3日間＝72本） | クリックで時間帯選択（5節のデータ量対策により、選択可能な範囲は代表期間内に限る） |
-| ⑥-3ガント（twograph上段） | `twograph.py`(第2層)→`gantt.py`(第1層) | 水平棒（`base`+`x`で区間表現） | y=並行処理枠（行）, x=時刻 | 選択eqp・選択時間帯を中心とした窓（既定4時間） | 着工中区間に`lot_id`をテキスト表示、待機はグレー |
+| ⑥-3ガント（twograph上段） | `twograph.py`(第2層)→`gantt.py`(第1層) | 水平棒（`base`+`x`で区間表現） | y=並行処理枠（行）, x=時刻 | 選択eqp・選択時間帯を中心とした窓（既定4時間）。行数は貪欲法での詰め直し結果に従う（実測で平均9・最大16行、縦スクロール前提） | 着工中区間に`lot_id`をテキスト表示、待機はグレー。画面上に「サンプルデータは設備の同時使用制約を持たないため並行数が多く出る」旨の注記を表示（11節参照） |
 | ⑥-3仕掛数量推移（twograph下段） | `twograph.py`(第2層)→`area.py`(第1層) | 積み上げ面（階段状、`stackgroup`） | x=時刻（ガントと共有のx軸） | ガントと同じ窓 | 3分類（着工中／待機中(自)／待機中(他)）。`shared_xaxes=True`によりガントとズーム・パン連動 |
 | ⑥-4ロット明細表 | `common/report.py` | HTML表 | - | 選択ロット1件（同一lot_id内の全工程行も参考として表示するかはtasklist時に決定） | `common/report.py`の明細表描画を流用 |
 
@@ -399,3 +422,79 @@ design.md初版はグラフ部品をフラットに並べる構成（`pareto.py`
   ズーム・パン等の連動性を持たせたい（実装方式は一任）。
   → Plotlyの`make_subplots(shared_xaxes=True)`で実現する方針とした
   （3節参照。カスタムJSは不要）。
+
+## 11. 実データ確認で分かったこと（要対応）
+
+4節のレビューをきっかけに、`data/trial_factory/proc_history.parquet`
+（4,211,253行・設備400台）へ実際にDuckDBでスイープライン集計をかけて
+確認した。
+
+| 指標 | 実測値 |
+| --- | --- |
+| 同一設備で時間が重なる隣接ペアの割合 | 約77%（3,249,488 / 4,210,853） |
+| 設備ごとの同時並行ピーク数（平均） | 約9本 |
+| 設備ごとの同時並行ピーク数（最大） | 16本（`EQP305`等） |
+| 同（最小） | 4本 |
+
+**分かったこと**: これは工場のバッチ設備を模した挙動ではなく、
+`generate_proc_history`が「同じ設備は同時に1ロットしか処理できない」
+という排他制御をそもそも実装していない副作用（`generate_proc_history.md`
+の検証ルールにも、他ロットとの時間重複を禁止する項目は無い）。つまり
+ロットごとに独立に時刻を決めているため、統計的に大量の重複が発生する。
+
+**対応**:
+
+- モックで想定していた「並行処理枠3〜4行」は不足するため、5-2節・7節を
+  実測値（平均9・最大16行）に合わせて修正済み（本コミットに反映済み）。
+- ガントチャートの画面に、「このサンプルデータは設備の同時使用制約を
+  モデル化していないため、実際の工場より並行数が多く出ます」という趣旨の
+  注記を表示する（7節に追記済み）。
+- 根本的にデータ生成側を直す（`generate_proc_history`に排他制御を
+  実装する）選択肢もあるが、**今回のスコープには含めない**
+  （`requirements.md`の制約事項「実データではなくサンプルデータを対象と
+  する」の範囲内とし、注記で対応する）。将来`generate_proc_history`を
+  改修する際の既知の課題としてどこかに記録しておく価値はある
+  （`docs/reference/generate_proc_history.md`の「既知の制約・注意点」に
+  追記する、等。今回のタスクの対象外なので実施はしない）。
+
+## 12. design.mdの現状評価と残課題（正直な自己評価）
+
+「design文書として十分か」という質問への回答。**まだ実装に入るには
+詰め切れていない点がある**と考えている。特に上2つは`tasklist.md`着手前
+に解消しておきたい。
+
+- **①（要対応・上記11節で対応済み）** 並行処理枠の想定行数が実データと
+  合っていなかった。→ 本コミットで修正済み。
+- **②`common/report.py`の`build_multi_stage_drilldown_html()`の
+  データ契約が抽象的すぎる。** 「各段のFigureとJSスニペットを受け取る」
+  としか書いておらず、具体的に
+  - 各段のFigureをどのdiv idで埋め込むか
+  - 段2→段3、段3→段4の「クリック→次段の絞り込み条件」をどんなデータ
+    構造で`visualize.py`から`report.py`に渡すか
+  - `LotDetail`のcolumnar JSON（5-1節）とガント/仕掛推移のJS実装が
+    具体的にどう結びつくか
+  が未確定。ここが曖昧なまま`tasklist.md`に進むと、実装中に手戻りが
+  起きるリスクが高い。**次のレビューまでに、この部分だけもう一段具体化
+  したい。**
+- **③`twograph.py`でのクリックイベント取得は未検証の想定。**
+  `make_subplots(shared_xaxes=True)`でズーム・パン連動はPlotlyの標準
+  機能だが、「ガント側の区間クリックで`plotly_click`イベントを拾い、
+  仕掛推移側ではなくガント側のtraceだけを対象にする」という細かい制御が
+  素直にできるかは、実装時に早めに小さい検証コードで確認すべき
+  （設計判断自体を変える可能性は低いが、未検証であることは明記しておく）。
+- **④`bar.py`の単色モード追加のシグネチャが未確定。** 「`color`省略時に
+  単色棒にする」とだけ決めており、既存の`stacked_bar()`の引数をどう
+  変えるか（オプショナル化するか、別関数`simple_bar()`を足すか）は
+  `tasklist.md`時点で決める。
+- **⑤`annotate_lot_sequence()`の境界ケースのテスト観点を明記していない。**
+  ロットの最初の工程は`prev_eqp_id`が`NULL`、最後の工程は`next_eqp_id`が
+  `NULL`になる。仕掛数量推移の3分類判定（4節）はこの`NULL`を「どちらの
+  分類にも該当しない」として扱う必要があり、`tasklist.md`のユニット
+  テスト項目に明記する。
+- **⑥仕掛数量推移の3分類が実データでどの程度意味のある分布になるかは
+  未確認。** 11節の発見（設備の同時使用制約が無い）を踏まえると、
+  「待機中（自装置着工）」の母数も想定より多くなる可能性がある。
+  `prepare.py`実装後、実際の分布を見て極端に偏っていないか確認する。
+
+上記②③は設計の骨格に関わるため、**このまま`tasklist.md`に進んでよいか、
+②③をもう一段詰めてから進むか、判断を仰ぎたい。**
