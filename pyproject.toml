@@ -26,10 +26,25 @@ dev = [
     "ruff>=0.16.5",
 ]
 
+[tool.pytest.ini_options]
+# 既定のimport-mode（prepend）は、__init__.pyの無いディレクトリ同士に
+# 同名のテストファイル（例: tests/trial_factory/配下の複数ツールにある
+# test_io.py）があるとモジュール名が衝突し、`uv run pytest`（全体実行）
+# が失敗する。importlibモードはファイルパスから直接importするため
+# __init__.py無しでも衝突しない（pytest公式が推奨する解決策）。
+addopts = "--import-mode=importlib"
+
+[tool.mypy]
+# tests/配下は複数ツールで同名のテストファイル（test_io.py等）を使うため、
+# __init__.pyの有無に頼らず名前空間パッケージとして扱い、ディレクトリ
+# 構成からモジュール名を一意に解決させる（`Duplicate module named`回避）。
+explicit_package_bases = true
+mypy_path = "src"
+
 [[tool.mypy.overrides]]
-# plotly/duckdbは型スタブを配布していないため、既存の型チェックを妨げない
-# ようにimportエラーだけを無視する（コード自体の型ヒントは維持する）。
-module = ["plotly.*", "duckdb.*"]
+# plotly/duckdb/pyarrowは型スタブを配布していないため、既存の型チェックを
+# 妨げないようにimportエラーだけを無視する（コード自体の型ヒントは維持する）。
+module = ["plotly.*", "duckdb.*", "pyarrow.*"]
 ignore_missing_imports = true
 
 [tool.ruff.lint]
