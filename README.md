@@ -5,19 +5,18 @@ DATA分析で使うツールスクリプトを溜めていく社内ツール集�
 
 ## セットアップ
 
+クローン後に次を実行する。Pythonのバージョンは`.python-version`に準拠する。
+
 ```bash
-uv sync
+uv sync                              # 依存をインストール（uvが必要）
+uv run pytest                        # 動作確認（任意）
 ```
 
-## 現在の状態
 
-まだ`src/`・`scripts/`への本採用は行われておらず、動作確認済みの試作実装が
-[docs/reference/](docs/reference/)に置かれている段階です。
+品質チェック（ruff・mypy・pytest）を含む詳細は
+[docs/development-process.md](docs/development-process.md)の
+「環境セットアップの内容」を参照。
 
-| ツール | 状態 | 説明資料 | 概要 |
-| --- | --- | --- | --- |
-| `generate_sample_data` | リファレンス実装（`docs/reference/`） | [docs/reference/generate_sample_data.md](docs/reference/generate_sample_data.md) | データ定義情報（プロファイル）からサンプルデータ（Parquet）を生成する |
-| `customer_pref_summary` | リファレンス実装（`docs/reference/`） | [docs/reference/customer_pref_summary.md](docs/reference/customer_pref_summary.md) | 顧客マスタをprefごとに集計し、segment色分け・クリックで明細が見える棒グラフレポートを作る |
 
 ## 使い方（本採用後）
 
@@ -39,3 +38,4 @@ uv run python scripts/<プロジェクト名>/<ツール名>.py [オプション
 
 フォルダ構成の詳細は
 [docs/repository-structure.md](docs/repository-structure.md)を参照。
+

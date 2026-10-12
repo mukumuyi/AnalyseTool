@@ -34,9 +34,9 @@ AnalyseTool/
 │           └── <ツール名>_<HHMMSS>.html 等   ファイル名に実行時刻を付与（同日複数回実行しても上書きされない）
 │
 ├── tests/                       src/analyse_tool/ と対応するユニットテスト ※本採用後に作成
-│   └── common/
-│       └── charts/
-│           └── test_bar.py
+│   ├── common/
+│   │   └── charts/
+│   │       └── test_bar.py
 │
 ├── docs/
 │   ├── product-requirements.md  永続的ドキュメント（プロダクト要求）
@@ -55,13 +55,17 @@ AnalyseTool/
 │   ├── templates/               各種テンプレートの置き場
 │   │   ├── product-requirements.md 等  永続的ドキュメントの空テンプレート（見出しのみ）
 │   │   └── tool-doc.md          ツール説明資料のテンプレート
-│   └── ideas/                   ブレスト・試作アイデアのメモ（後述）
 │
-└── .steering/                   作業単位ドキュメント
-    └── [YYYYMMDD]-[開発タイトル]/
-        ├── requirements.md
-        ├── design.md
-        └── tasklist.md
+├── .steering/                   作業単位ドキュメント
+│   └── [YYYYMMDD]-[開発タイトル]/
+│       ├── requirements.md
+│       ├── design.md
+│       └── tasklist.md
+│
+├── .claude/                     Claude Code の設定（開発プロセスの道具）
+│   └── skills/
+│       ├── steering-workflow/   機能追加・修正の進め方（prompts/ にサブエージェントの指示文）
+│       ├── kabeuchi/            壁打ち（/kabeuchi）
 ```
 
 ## ディレクトリの役割
@@ -80,8 +84,8 @@ AnalyseTool/
 | `docs/<プロジェクト名>/` | 本採用後の各ツール説明資料 |
 | `docs/glossary/` | ユビキタス言語。全プロジェクト横断の用語（`common.md`）とプロジェクト固有の用語（`<プロジェクト名>.md`）に分ける |
 | `docs/templates/` | テンプレートの置き場。永続的ドキュメントの空テンプレートとツール説明資料のテンプレート（`tool-doc.md`）をまとめる |
-| `docs/ideas/` | ブレスト・試作アイデアのメモ（後述の「現在ideas/reference/にあるもの」を参照） |
 | `.steering/` | 作業単位ドキュメント（今回の要求・設計・タスクリスト） |
+| `.claude/` | Claude Code のスキル・フック・設定。開発プロセス（`docs/development-process.md`）を動かす道具 |
 
 「プロジェクト」の境界は、扱うデータ（テーブル群）と業務ドメインで決める
 （例: 顧客・注文データを扱う分析群なら`sales`のようにまとめる）。現時点では
@@ -94,19 +98,7 @@ AnalyseTool/
 
 `.steering/`で要求・設計を固めたうえで、直接
 `src/analyse_tool/<プロジェクト名>/<ツール名>/` + `scripts/<プロジェクト名>/<ツール名>.py`
-として実装する。`docs/ideas/`や`docs/reference/`を経由することは通常は不要。
-
-### 現在`docs/ideas/`にあるもの（移行期の一時的な状態）
-
-`docs/ideas/`には、現在のドキュメント体系に再構成する前のブレストメモ・
-試作アイデア（`MEMO.md`/`MEMO2.md`）が記録として残っている。これは今回の
-仕切り直しに伴う一時的な保管であり、新規ツール開発で必ず経由する標準の
-場所ではない。
-
-現在この配下にあった試作実装（`customer_pref_summary`・
-`generate_sample_data`）は`docs/reference/`へ移動済みで、最初の本採用
-（`src/`+`scripts/`への移行）が完了したら、`docs/reference/`ごと削除する
-想定。
+として実装する。
 
 ### `output/`の構成
 
