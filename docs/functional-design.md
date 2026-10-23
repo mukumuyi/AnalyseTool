@@ -133,9 +133,10 @@ erDiagram
 | `common/report.py` | グラフ＋クリック連動明細表をまとめた自己完結HTMLの組み立て | 実装済み（1段ドリルダウンのみ） |
 | `common/output_index.py` | `output/<プロジェクト名>/index.html`への実行結果の登録・追記（`register_output()`）。各ツールの`io.py`がレポート書き出し後に呼び出す | 未実装（設計合意済み） |
 | `common/charts/bar.py` | 積み上げ棒グラフ | 実装済み |
+| `common/charts/line.py` | 折れ線グラフ（線＋点、`go.Scatter`。`add_line_traces()`/`line()`、欠損は補完せず途切れさせる） | 実装済み |
 | `common/charts/box.py` | 箱ひげ図（EDAでの分布・外れ値確認） | 未実装（設計合意済み） |
 | `common/charts/histogram.py` | ヒストグラム（EDAでの分布形状確認、`color`で重ね描き） | 未実装（設計合意済み） |
-| `common/charts/pie.py` | 円グラフ（構成比） | 未実装（設計合意済み） |
+| `common/charts/pie.py` | 円グラフ（構成比） | 実装済み |
 | `common/charts/scatter.py` | 散布図（`scattergl`固定、WebGL） | 未実装（設計合意済み） |
 | `common/charts/pareto.py` | パレート図（棒+累積構成比の二軸、独立モジュール） | 未実装（設計合意済み） |
 | `common/charts/timeline.py` | ガントチャート（期間の横棒） | 未実装（設計合意済み） |
@@ -155,7 +156,8 @@ erDiagram
   データに対してブラウザ側JSで行う（Pythonでの再集計はクリック時には
   発生しないため）。単純な件数集計に限定し、JS側の複雑化を避ける。
 
-### ツールごとの実装（`docs/reference/`に参考実装あり）
+### ツールごとの実装
+
 
 | ツール | 構成 | 備考 |
 | --- | --- | --- |
